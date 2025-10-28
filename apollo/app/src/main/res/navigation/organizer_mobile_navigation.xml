@@ -8,14 +8,33 @@
     <fragment
         android:id="@+id/navigation_events"
         android:name="com.example.apollo.ui.organizer.events.EventsFragment"
-        android:label="@string/title_home"
-        tools:layout="@layout/fragment_home" />
+        android:label="Events"
+        tools:layout="@layout/fragment_events"/>
+
+<!--    <action-->
+<!--        android:id="@+id/action_navigation_events_to_event"-->
+<!--        app:destination="@id/event_waitlist" />-->
+
 
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.apollo.ui.organizer.profile.ProfileFragment"
         android:label="@string/title_profile"
-        tools:layout="@layout/fragment_profile_organizer" />
+        tools:layout="@layout/fragment_profile_organizer" >
+        <action
+            android:id="@+id/action_navigation_profile_to_navigation_event_waitlist"
+            app:destination="@id/navigation_event_waitlist" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_event_waitlist"
+        android:name="com.example.apollo.ui.organizer.events.EventWaitlistFragment"
+        android:label="Event Waitlist"
+        tools:layout="@layout/fragment_event_waitlist" >
+        <action
+            android:id="@+id/action_navigation_event_waitlist_to_navigation_profile"
+            app:destination="@id/navigation_profile" />
+    </fragment>
 
 
 </navigation>
