@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:id="@+id/text_event_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Event 1 Details"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/text_event_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="This event is about..."
+        android:textSize="16sp"
+        android:layout_marginBottom="40dp" />
+
+    <TextView
+        android:id="@+id/text_event_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Location: Terwillegar\nTime: 5:00pm\nRegistration between Oct 05 - Oct 12, 2025"
+        android:textSize="14sp"
+        android:lineSpacingExtra="2dp"
+        android:textColor="@android:color/black"
+        android:layout_marginBottom="40dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_join_waitlist"
+        android:layout_width="250dp"
+        android:layout_height="70dp"
+        android:text="Join Waiting List"
+        android:textColor="@android:color/black"
+        android:backgroundTint="@color/lightblue"
+        app:cornerRadius="20dp"
+        app:rippleColor="#B3E5FC"
+        android:padding="10dp" />
+</LinearLayout>
