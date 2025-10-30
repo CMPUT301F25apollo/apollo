@@ -1,11 +1,11 @@
-package com.example.apollo.ui.organizer.events;
+package com.example.apollo.ui.profile.entrants;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
-import java.util.List;
+
 import java.util.ArrayList;
-import com.example.apollo.ui.profile.entrants.EntrantEvent;
+import java.util.List;
 
 public class EventsViewModel extends ViewModel {
     private final MutableLiveData<String> mText;
