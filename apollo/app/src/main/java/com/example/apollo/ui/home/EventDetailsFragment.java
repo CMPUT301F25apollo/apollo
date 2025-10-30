@@ -9,12 +9,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
 import com.google.android.material.button.MaterialButton;
 import android.widget.TextView;
-
-
+import android.widget.ImageButton;
 
 public class EventDetailsFragment extends Fragment {
 
@@ -32,6 +32,7 @@ public class EventDetailsFragment extends Fragment {
         TextView title = view.findViewById(R.id.text_event_name);
         TextView info = view.findViewById(R.id.text_event_info);
         MaterialButton joinButton = view.findViewById(R.id.button_join_waitlist);
+        ImageButton backButton = view.findViewById(R.id.back_button); // ✅ added this
 
         // Get bundle data
         Bundle args = getArguments();
@@ -50,7 +51,12 @@ public class EventDetailsFragment extends Fragment {
             );
         }
 
-        //join button toggle logic
+        // 🔙 Back button click logic
+        backButton.setOnClickListener(v ->
+                NavHostFragment.findNavController(this).popBackStack()
+        );
+
+        // join button toggle logic
         joinButton.setOnClickListener(v -> {
             if (!joined) {
                 joinButton.setText("JOINED!");
