@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp"
+    tools:context=".ui.home.HomeFragment">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal">
+
+        <!-- App title -->
+        <TextView
+            android:id="@+id/textHome"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="apollo"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Section header -->
+        <TextView
+            android:text="EVENTS"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="20dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <!-- Event 1 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_event1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EVENT"
+            android:textColor="@android:color/black"
+            android:backgroundTint="@color/lightblue"
+            app:cornerRadius="20dp"
+            app:rippleColor="#B3E5FC"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Event 2 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_event2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EVENT1"
+            android:textColor="@android:color/black"
+            android:backgroundTint="@color/lightblue"
+            app:cornerRadius="20dp"
+            app:rippleColor="#B3E5FC"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Event 3 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_event3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EVENT2"
+            android:textColor="@android:color/black"
+            android:backgroundTint="@color/lightblue"
+            app:cornerRadius="20dp"
+            app:rippleColor="#B3E5FC"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Event 4 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_event4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EVENT3"
+            android:textColor="@android:color/black"
+            android:backgroundTint="@color/lightblue"
+            app:cornerRadius="20dp"
+            app:rippleColor="#B3E5FC"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -28,4 +28,8 @@ public class ProfileFragment extends Fragment {
         rowEmail.setClickable(true);
         rowPhone.setClickable(true);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/main

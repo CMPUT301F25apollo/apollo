@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "96409066325",
+    "project_id": "apollo-a1233",
+    "storage_bucket": "apollo-a1233.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96409066325:android:4fd49f7d9929817a132ddc",
+        "android_client_info": {
+          "package_name": "com.example.apollo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFanmaAffRq88XGYbqt5O_-0419RQUhE8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

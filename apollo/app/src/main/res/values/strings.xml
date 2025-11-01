@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">apollo</string>
+    <string name="title_home">Home</string>
+    <string name="title_profile">Profile</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="events">Events</string>
+    <string name="export_as_csv">Export as CSV</string>
+    <string name="filter">Filter</string>
+    <string name="entrants_in_waitlist">Entrants In Waitlist</string>
+    <string name="filter_button">filter button</string>
+    <string name="empty">empty</string>
+    <string name="title_events">Events</string>
+</resources>
