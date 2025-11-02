@@ -36,5 +36,23 @@
             app:destination="@id/navigation_profile" />
     </fragment>
 
+    <fragment
+        android:id="@+id/navigation_profile_user"
+        android:name="com.example.apollo.ui.profile.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile">
+
+        <!-- profile to settings action-->
+        <action
+            android:id="@+id/action_navigation_profile_to_settings"
+            app:destination="@id/navigation_settings" />
+    </fragment>
+
+
+    <fragment
+        android:id="@+id/navigation_settings"
+        android:name="com.example.apollo.ui.profile.SettingsFragment"
+        android:label="Settings"
+        tools:layout="@layout/fragment_settings" />
 
 </navigation>
