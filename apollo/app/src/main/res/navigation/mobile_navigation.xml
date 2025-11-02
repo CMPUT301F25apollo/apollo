@@ -35,5 +35,12 @@
         android:label="Event Details"
         tools:layout="@layout/fragment_event_details" />
 
+    <fragment
+        android:id="@+id/navigation_settings"
+        android:name="com.example.apollo.ui.profile.SettingsFragment"
+        android:label="Settings"
+        tools:layout="@layout/fragment_settings"
+        />
+
 
 </navigation>

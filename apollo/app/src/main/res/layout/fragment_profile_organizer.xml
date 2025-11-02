@@ -18,11 +18,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-<<<<<<< HEAD:app/src/main/res/layout/content_main.xml
-<<<<<<< Updated upstream:app/src/main/res/layout/content_main.xml
-        app:layout_constraintTop_toTopOf="parent"
-        app:navGraph="@navigation/nav_graph" />
-=======
         app:layout_constraintTop_toTopOf="parent" />
 
     <!--edit information title -->
@@ -242,9 +237,4 @@
         </LinearLayout>
     </LinearLayout>
 
->>>>>>> Stashed changes:apollo/app/src/main/res/layout/fragment_profile.xml
-=======
-        app:layout_constraintTop_toTopOf="parent" />
-
->>>>>>> origin/main:apollo/app/src/main/res/layout/fragment_profile_organizer.xml
 </androidx.constraintlayout.widget.ConstraintLayout>
