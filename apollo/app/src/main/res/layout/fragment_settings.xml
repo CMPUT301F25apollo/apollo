@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp">
+
+    <!-- edit information title-->
+    <TextView
+        android:id="@+id/titleEditInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="EDIT INFORMATION"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:textColor="#000000"
+        android:layout_marginTop="96dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- my account title -->
+    <TextView
+        android:id="@+id/sectionMyAccount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MY ACCOUNT"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="#000000"
+        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toBottomOf="@id/titleEditInfo"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- cards column -->
+    <LinearLayout
+        android:id="@+id/cards"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toBottomOf="@id/sectionMyAccount"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- name-->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Name"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#000000"
+            android:layout_marginTop="16dp" />
+
+        <EditText
+            android:id="@+id/editName"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/account_card"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:hint="Name"
+            android:textColor="#000000"
+            android:textColorHint="#9AA0A6"
+            android:importantForAutofill="yes"
+            android:inputType="textPersonName" />
+
+        <!--username -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Username"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#000000"
+            android:layout_marginTop="16dp" />
+
+        <EditText
+            android:id="@+id/editUsername"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/account_card"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:hint="\@username123"
+            android:textColor="#000000"
+            android:textColorHint="#9AA0A6"
+            android:inputType="textPersonName"
+            android:autoSizeTextType="none" />
+
+        <!--email -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Email address"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#000000"
+            android:layout_marginTop="16dp" />
+
+        <EditText
+            android:id="@+id/editEmail"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/account_card"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:hint="user@gmail.com"
+            android:textColor="#000000"
+            android:textColorHint="#9AA0A6"
+            android:inputType="textEmailAddress"
+            android:autofillHints="emailAddress" />
+
+        <!-- phone #-->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Phone number (optional)"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#000000"
+            android:layout_marginTop="16dp" />
+
+        <EditText
+            android:id="@+id/editPhone"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/account_card"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:hint="123 456 7890"
+            android:textColor="#000000"
+            android:textColorHint="#9AA0A6"
+            android:inputType="phone"
+            android:autofillHints="phone" />
+
+        <!-- Save changes-->
+        <Button
+            android:id="@+id/Savebtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="20dp"
+            android:text="Save changes" />
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
