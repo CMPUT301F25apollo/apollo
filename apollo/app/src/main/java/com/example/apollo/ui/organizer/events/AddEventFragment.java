@@ -48,7 +48,7 @@ public class AddEventFragment extends Fragment {
         // Initialize views
         eventTitle = view.findViewById(R.id.eventTitle);
         eventDescription = view.findViewById(R.id.eventDescription);
-        eventLocation = view.findViewById(R.id.eventLocation);
+        eventLocation = view.findViewById(R.id.eventLocation); // added
         eventDate = view.findViewById(R.id.eventDate);
         eventTime = view.findViewById(R.id.eventTime);
         eventCapacity = view.findViewById(R.id.eventCapacity);
@@ -68,17 +68,8 @@ public class AddEventFragment extends Fragment {
         }
 
         // AM/PM buttons
-        buttonAM.setOnClickListener(v -> {
-            ampm = "AM";
-            buttonAM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
-            buttonPM.setBackgroundColor(Color.parseColor("#D3D3D3"));
-        });
-
-        buttonPM.setOnClickListener(v -> {
-            ampm = "PM";
-            buttonPM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
-            buttonAM.setBackgroundColor(Color.parseColor("#D3D3D3"));
-        });
+        buttonAM.setOnClickListener(v -> selectAMPM("AM"));
+        buttonPM.setOnClickListener(v -> selectAMPM("PM"));
 
         // Save/Update button
         buttonSaveEvent.setOnClickListener(v -> {
@@ -98,6 +89,18 @@ public class AddEventFragment extends Fragment {
         return view;
     }
 
+    // 🔹 AM/PM selection
+    private void selectAMPM(String selection) {
+        ampm = selection;
+        if ("AM".equals(selection)) {
+            buttonAM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
+            buttonPM.setBackgroundColor(Color.parseColor("#D3D3D3"));
+        } else {
+            buttonPM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
+            buttonAM.setBackgroundColor(Color.parseColor("#D3D3D3"));
+        }
+    }
+
     // 🔹 Load data for editing
     private void loadEventDataForEditing(String eventId) {
         DocumentReference eventRef = db.collection("events").document(eventId);
@@ -105,18 +108,14 @@ public class AddEventFragment extends Fragment {
             if (document.exists()) {
                 eventTitle.setText(document.getString("title"));
                 eventDescription.setText(document.getString("description"));
+                eventLocation.setText(document.getString("location")); // added
                 eventDate.setText(document.getString("date"));
-                eventTime.setText(document.getString("time").replaceAll("(AM|PM)", "").trim());
 
                 String timeValue = document.getString("time");
-                if (timeValue != null && timeValue.contains("PM")) {
-                    ampm = "PM";
-                    buttonPM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
-                    buttonAM.setBackgroundColor(Color.parseColor("#D3D3D3"));
-                } else {
-                    ampm = "AM";
-                    buttonAM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
-                    buttonPM.setBackgroundColor(Color.parseColor("#D3D3D3"));
+                if (timeValue != null) {
+                    eventTime.setText(timeValue.replaceAll("(AM|PM)", "").trim());
+                    if (timeValue.contains("PM")) selectAMPM("PM");
+                    else selectAMPM("AM");
                 }
 
                 if (document.contains("eventCapacity"))
@@ -135,19 +134,18 @@ public class AddEventFragment extends Fragment {
     }
 
     private boolean validateInputs() {
-        // Title
         if (eventTitle.getText().toString().trim().isEmpty()) {
             eventTitle.setError("Required");
             return false;
         }
-
-        // Description
         if (eventDescription.getText().toString().trim().isEmpty()) {
             eventDescription.setError("Required");
             return false;
         }
-
-        // Date and Time
+        if (eventLocation.getText().toString().trim().isEmpty()) {
+            eventLocation.setError("Required");
+            return false;
+        }
         if (eventDate.getText().toString().trim().isEmpty() ||
                 eventTime.getText().toString().trim().isEmpty() ||
                 ampm.isEmpty()) {
@@ -155,38 +153,24 @@ public class AddEventFragment extends Fragment {
             return false;
         }
 
-        // Capacity, Price, and Waitlist
         try {
             int capacity = Integer.parseInt(eventCapacity.getText().toString().trim());
-            if (capacity <= 0) {
-                Toast.makeText(getContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
+            if (capacity <= 0) throw new NumberFormatException("Capacity must be > 0");
             double price = Double.parseDouble(eventPrice.getText().toString().trim());
-            if (price < 0) {
-                Toast.makeText(getContext(), "Price cannot be negative", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
+            if (price < 0) throw new NumberFormatException("Price cannot be negative");
             int waitlist = Integer.parseInt(waitlistCapacity.getText().toString().trim());
-            if (waitlist < 0) {
-                Toast.makeText(getContext(), "Waitlist cannot be negative", Toast.LENGTH_SHORT).show();
-                return false;
-            }
+            if (waitlist < 0) throw new NumberFormatException("Waitlist cannot be negative");
         } catch (NumberFormatException e) {
-            Toast.makeText(getContext(), "Invalid number format", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Invalid numeric value", Toast.LENGTH_SHORT).show();
             return false;
         }
 
-        // Registration Open/Close Dates
         if (registrationOpen.getText().toString().trim().isEmpty() ||
                 registrationClose.getText().toString().trim().isEmpty()) {
-            Toast.makeText(getContext(), "Enter registration open and close dates", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Enter registration dates", Toast.LENGTH_SHORT).show();
             return false;
         }
 
-        // Date Logic Validation
         SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.US);
         try {
             String eventDateTimeStr = eventDate.getText().toString().trim() + " " +
@@ -204,12 +188,10 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Event date/time cannot be in the past", Toast.LENGTH_SHORT).show();
                 return false;
             }
-
             if (regOpen.after(regClose)) {
-                Toast.makeText(getContext(), "Registration open date must be before close date", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Registration open must be before close", Toast.LENGTH_SHORT).show();
                 return false;
             }
-
             if (regClose.after(eventDateTime)) {
                 Toast.makeText(getContext(), "Registration close must be before event date", Toast.LENGTH_SHORT).show();
                 return false;
@@ -223,7 +205,24 @@ public class AddEventFragment extends Fragment {
         return true;
     }
 
-    // 🔹 Add new event
+    // 🔹 Build map for Firestore
+    private Map<String, Object> buildEventMap() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("title", eventTitle.getText().toString().trim());
+        event.put("description", eventDescription.getText().toString().trim());
+        event.put("location", eventLocation.getText().toString().trim()); // included
+        event.put("date", eventDate.getText().toString().trim());
+        event.put("time", eventTime.getText().toString().trim() + " " + ampm);
+        event.put("eventCapacity", Integer.parseInt(eventCapacity.getText().toString().trim()));
+        event.put("price", Double.parseDouble(eventPrice.getText().toString().trim()));
+        event.put("waitlistCapacity", Integer.parseInt(waitlistCapacity.getText().toString().trim()));
+        event.put("registrationOpen", registrationOpen.getText().toString().trim());
+        event.put("registrationClose", registrationClose.getText().toString().trim());
+        event.put("updatedAt", new Date());
+        return event;
+    }
+
+    // 🔹 Save new event
     private void saveEventToFirestore() {
         Map<String, Object> event = buildEventMap();
         db.collection("events")
@@ -247,22 +246,5 @@ public class AddEventFragment extends Fragment {
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-    }
-
-    // 🔹 Helper to build map for Firestore
-    private Map<String, Object> buildEventMap() {
-        Map<String, Object> event = new HashMap<>();
-        event.put("title", eventTitle.getText().toString().trim());
-        event.put("description", eventDescription.getText().toString().trim());
-        event.put("location", eventLocation.getText().toString().trim()); // <-- add this
-        event.put("date", eventDate.getText().toString().trim());
-        event.put("time", eventTime.getText().toString().trim() + " " + ampm);
-        event.put("eventCapacity", Integer.parseInt(eventCapacity.getText().toString().trim()));
-        event.put("price", Double.parseDouble(eventPrice.getText().toString().trim()));
-        event.put("waitlistCapacity", Integer.parseInt(waitlistCapacity.getText().toString().trim()));
-        event.put("registrationOpen", registrationOpen.getText().toString().trim());
-        event.put("registrationClose", registrationClose.getText().toString().trim());
-        event.put("updatedAt", new Date());
-        return event;
     }
 }
