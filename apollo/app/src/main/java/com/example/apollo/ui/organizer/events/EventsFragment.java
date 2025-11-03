@@ -15,13 +15,14 @@ import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
-import com.example.apollo.databinding.OrganiserFragmentEventsBinding;
+import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class EventsFragment extends Fragment {
 
-    private OrganiserFragmentEventsBinding binding;
+    private FragmentOrganizerEventsBinding binding;
     private EventsViewModel eventsViewModel;
     private FirebaseFirestore db;
 
@@ -29,13 +30,12 @@ public class EventsFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
 
-        binding = OrganiserFragmentEventsBinding.inflate(inflater, container, false);
+        binding = FragmentOrganizerEventsBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
 
         db = FirebaseFirestore.getInstance();
         eventsViewModel = new ViewModelProvider(this).get(EventsViewModel.class);
 
-        // Load events
         loadEvents();
 
         // Add new event button
@@ -55,19 +55,27 @@ public class EventsFragment extends Fragment {
                     container.removeAllViews();
 
                     for (QueryDocumentSnapshot document : querySnapshot) {
+                        String eventId = document.getId();
                         String title = document.getString("title");
-                        String date = document.getString("date");
+                        String description = document.getString("description");
+                        String location = document.getString("location");
                         String time = document.getString("time");
+                        String date = document.getString("date");
 
                         View card = LayoutInflater.from(getContext())
                                 .inflate(R.layout.item_event_card, container, false);
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
-                        TextView imageLabelView = card.findViewById(R.id.eventImageLabel);
 
-                        titleView.setText(title != null ? title : "Untitled Event");
-                        imageLabelView.setText(date + " at " + time);
+                        titleView.setText(title);
 
+                        card.setOnClickListener(v -> {
+                            Bundle bundle = new Bundle();
+                            bundle.putString("eventId", eventId);
+
+                            NavController navController = NavHostFragment.findNavController(this);
+                            navController.navigate(R.id.action_navigation_events_to_organizer_event_details, bundle);
+                        });
 
                         container.addView(card);
                     }

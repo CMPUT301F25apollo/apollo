@@ -1,4 +1,3 @@
-
 package com.example.apollo.ui.profile.entrants;
 
 import android.os.Bundle;
@@ -32,14 +31,14 @@ public class EventsFragment extends Fragment {
         eventsViewModel = new ViewModelProvider(this).get(EventsViewModel.class);
 
         // Find the button from XML (it’s already in fragment_events.xml)
-        Button joinButton = root.findViewById(R.id.button_event_waitlist);
-
-        // When button is clicked → join waiting list
-        joinButton.setOnClickListener(v -> {
-            // Simulate joining event with id "1" as user "hana123"
-            eventsViewModel.joinWaitingList("1", "hana123");
-            Toast.makeText(getContext(), "Joined waiting list for event 1!", Toast.LENGTH_SHORT).show();
-        });
+//        Button joinButton = root.findViewById(R.id.button_event_waitlist);
+//
+//        // When button is clicked → join waiting list
+//        joinButton.setOnClickListener(v -> {
+//            // Simulate joining event with id "1" as user "hana123"
+//            eventsViewModel.joinWaitingList("1", "hana123");
+//            Toast.makeText(getContext(), "Joined waiting list for event 1!", Toast.LENGTH_SHORT).show();
+//        });
 
         return root;
     }

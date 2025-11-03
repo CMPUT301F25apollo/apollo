@@ -2,6 +2,7 @@ package com.example.apollo.ui.organizer.events;
 
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,7 @@ import androidx.fragment.app.Fragment;
 
 import com.example.apollo.R;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.ParseException;
@@ -26,11 +28,12 @@ import java.util.Map;
 
 public class AddEventFragment extends Fragment {
 
-    private TextInputEditText eventTitle, eventDescription, eventDate, eventTime,
+    private TextInputEditText eventTitle, eventDescription, eventDate, eventTime, eventLocation,
             eventCapacity, eventPrice, waitlistCapacity, registrationOpen, registrationClose;
     private Button buttonAM, buttonPM, buttonSaveEvent;
     private String ampm = "";
     private FirebaseFirestore db;
+    private String eventId = null; // Used for edit mode
 
     @Nullable
     @Override
@@ -40,12 +43,12 @@ public class AddEventFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_add_event, container, false);
 
-        // Initialize Firestore
         db = FirebaseFirestore.getInstance();
 
         // Initialize views
         eventTitle = view.findViewById(R.id.eventTitle);
         eventDescription = view.findViewById(R.id.eventDescription);
+        eventLocation = view.findViewById(R.id.eventLocation);
         eventDate = view.findViewById(R.id.eventDate);
         eventTime = view.findViewById(R.id.eventTime);
         eventCapacity = view.findViewById(R.id.eventCapacity);
@@ -56,6 +59,13 @@ public class AddEventFragment extends Fragment {
         buttonAM = view.findViewById(R.id.buttonAM);
         buttonPM = view.findViewById(R.id.buttonPM);
         buttonSaveEvent = view.findViewById(R.id.buttonSaveEvent);
+
+        // Check if eventId passed → EDIT MODE
+        if (getArguments() != null && getArguments().containsKey("eventId")) {
+            eventId = getArguments().getString("eventId");
+            buttonSaveEvent.setText("Update Event");
+            loadEventDataForEditing(eventId);
+        }
 
         // AM/PM buttons
         buttonAM.setOnClickListener(v -> {
@@ -70,9 +80,12 @@ public class AddEventFragment extends Fragment {
             buttonAM.setBackgroundColor(Color.parseColor("#D3D3D3"));
         });
 
-        // Save button
+        // Save/Update button
         buttonSaveEvent.setOnClickListener(v -> {
-            if (validateInputs()) saveEventToFirestore();
+            if (validateInputs()) {
+                if (eventId != null) updateEventInFirestore(eventId);
+                else saveEventToFirestore();
+            }
         });
 
         // Back button
@@ -82,8 +95,43 @@ public class AddEventFragment extends Fragment {
             getParentFragmentManager().popBackStack();
         });
 
-
         return view;
+    }
+
+    // 🔹 Load data for editing
+    private void loadEventDataForEditing(String eventId) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        eventRef.get().addOnSuccessListener(document -> {
+            if (document.exists()) {
+                eventTitle.setText(document.getString("title"));
+                eventDescription.setText(document.getString("description"));
+                eventDate.setText(document.getString("date"));
+                eventTime.setText(document.getString("time").replaceAll("(AM|PM)", "").trim());
+
+                String timeValue = document.getString("time");
+                if (timeValue != null && timeValue.contains("PM")) {
+                    ampm = "PM";
+                    buttonPM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
+                    buttonAM.setBackgroundColor(Color.parseColor("#D3D3D3"));
+                } else {
+                    ampm = "AM";
+                    buttonAM.setBackgroundColor(Color.parseColor("#FFBB86FC"));
+                    buttonPM.setBackgroundColor(Color.parseColor("#D3D3D3"));
+                }
+
+                if (document.contains("eventCapacity"))
+                    eventCapacity.setText(String.valueOf(document.getLong("eventCapacity")));
+
+                if (document.contains("price"))
+                    eventPrice.setText(String.valueOf(document.getDouble("price")));
+
+                if (document.contains("waitlistCapacity"))
+                    waitlistCapacity.setText(String.valueOf(document.getLong("waitlistCapacity")));
+
+                registrationOpen.setText(document.getString("registrationOpen"));
+                registrationClose.setText(document.getString("registrationClose"));
+            }
+        }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));
     }
 
     private boolean validateInputs() {
@@ -175,11 +223,38 @@ public class AddEventFragment extends Fragment {
         return true;
     }
 
-
+    // 🔹 Add new event
     private void saveEventToFirestore() {
+        Map<String, Object> event = buildEventMap();
+        db.collection("events")
+                .add(event)
+                .addOnSuccessListener(docRef -> {
+                    Toast.makeText(getContext(), "Event added successfully!", Toast.LENGTH_SHORT).show();
+                    getParentFragmentManager().popBackStack();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    // 🔹 Update existing event
+    private void updateEventInFirestore(String eventId) {
+        Map<String, Object> event = buildEventMap();
+        db.collection("events").document(eventId)
+                .update(event)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Event updated successfully!", Toast.LENGTH_SHORT).show();
+                    getParentFragmentManager().popBackStack();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    // 🔹 Helper to build map for Firestore
+    private Map<String, Object> buildEventMap() {
         Map<String, Object> event = new HashMap<>();
         event.put("title", eventTitle.getText().toString().trim());
         event.put("description", eventDescription.getText().toString().trim());
+        event.put("location", eventLocation.getText().toString().trim()); // <-- add this
         event.put("date", eventDate.getText().toString().trim());
         event.put("time", eventTime.getText().toString().trim() + " " + ampm);
         event.put("eventCapacity", Integer.parseInt(eventCapacity.getText().toString().trim()));
@@ -187,16 +262,7 @@ public class AddEventFragment extends Fragment {
         event.put("waitlistCapacity", Integer.parseInt(waitlistCapacity.getText().toString().trim()));
         event.put("registrationOpen", registrationOpen.getText().toString().trim());
         event.put("registrationClose", registrationClose.getText().toString().trim());
-        event.put("createdAt", new Date());
-
-        db.collection("events")
-                .add(event)
-                .addOnSuccessListener(docRef -> {
-                    Toast.makeText(getContext(), "Event added successfully!", Toast.LENGTH_SHORT).show();
-                    getParentFragmentManager().popBackStack(); // go back to events page
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
+        event.put("updatedAt", new Date());
+        return event;
     }
 }
