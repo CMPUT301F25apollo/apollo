@@ -15,7 +15,7 @@
         android:layout_alignParentTop="true"
         android:layout_marginStart="8dp"
         android:layout_marginTop="28dp"
-        android:elevation="4dp" /> <!-- makes sure it's on top -->
+        android:elevation="4dp" />
 
     <!-- Scrollable Content -->
     <ScrollView
@@ -25,172 +25,190 @@
         android:layout_below="@id/back_button"
         android:padding="16dp">
 
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center_horizontal">
-
-        <!-- Event Title -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Event Title"
-            android:layout_marginTop="8dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textCapWords" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Description -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Description"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventDescription"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textMultiLine"
-                android:lines="2"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Event Date -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Event Date (MM/DD/YYYY)"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventDate"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="date"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Event Time + AM/PM Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="8dp">
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
 
-            <!-- Event Time -->
+            <!-- Event Title -->
             <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Event Time (HH:MM)">
+                android:hint="Event Title"
+                android:layout_marginTop="8dp">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/eventTime"
+                    android:id="@+id/eventTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="time"/>
+                    android:inputType="textCapWords" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- AM/PM Buttons -->
-            <Button
-                android:id="@+id/buttonAM"
-                android:layout_width="60dp"
+            <!-- Description -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="AM"
-                android:layout_marginStart="8dp"
-                android:backgroundTint="@color/purple_200"
-                android:textColor="@android:color/white"/>
+                android:hint="Description"
+                android:layout_marginTop="8dp">
 
-            <Button
-                android:id="@+id/buttonPM"
-                android:layout_width="60dp"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/eventDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine"
+                    android:lines="2" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Location -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="PM"
-                android:layout_marginStart="4dp"
-                android:backgroundTint="@color/purple_200"
-                android:textColor="@android:color/white"/>
+                android:hint="Location"
+                android:layout_marginTop="8dp">
 
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/eventLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapWords" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Event Date -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Event Date (MM/DD/YYYY)"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/eventDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="date" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Event Time + AM/PM Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <!-- Event Time -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Event Time (HH:MM)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/eventTime"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="time" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- AM/PM Buttons -->
+                <Button
+                    android:id="@+id/buttonAM"
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:text="AM"
+                    android:layout_marginStart="8dp"
+                    android:backgroundTint="@color/purple_200"
+                    android:textColor="@android:color/white" />
+
+                <Button
+                    android:id="@+id/buttonPM"
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:text="PM"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="@color/purple_200"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+
+            <!-- Capacity -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Capacity"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/eventCapacity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Price -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Price"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/eventPrice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Waitlist Capacity -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Waitlist Capacity"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/waitlistCapacity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Registration Open Date -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Registration Open Date (MM/DD/YYYY)"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/registrationOpen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="date" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Registration Close Date -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Registration Close Date (MM/DD/YYYY)"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/registrationClose"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="date" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Save Button -->
+            <Button
+                android:id="@+id/buttonSaveEvent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Save Event"
+                android:layout_marginTop="16dp"
+                android:backgroundTint="@color/purple_200"
+                android:textColor="@android:color/white" />
         </LinearLayout>
-
-        <!-- Capacity -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Capacity"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventCapacity"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Price -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Price"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventPrice"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="numberDecimal"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Waitlist Capacity -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Waitlist Capacity"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/waitlistCapacity"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Registration Open Date -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Registration Open Date (MM/DD/YYYY)"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/registrationOpen"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="date"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Registration Close Date -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Registration Close Date (MM/DD/YYYY)"
-            android:layout_marginTop="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/registrationClose"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="date"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Save Button -->
-        <Button
-            android:id="@+id/buttonSaveEvent"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Save Event"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="@color/purple_200"
-            android:textColor="@android:color/white"/>
-    </LinearLayout>
-</ScrollView>
-
+    </ScrollView>
 </RelativeLayout>
