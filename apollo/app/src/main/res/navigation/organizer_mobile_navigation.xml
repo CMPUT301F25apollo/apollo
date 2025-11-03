@@ -9,12 +9,24 @@
         android:id="@+id/navigation_events"
         android:name="com.example.apollo.ui.organizer.events.EventsFragment"
         android:label="Events"
-        tools:layout="@layout/fragment_events"/>
+        tools:layout="@layout/organiser_fragment_events">
 
-<!--    <action-->
-<!--        android:id="@+id/action_navigation_events_to_event"-->
-<!--        app:destination="@id/event_waitlist" />-->
+        <action
+            android:id="@+id/action_navigation_events_to_navigation_add_event"
+            app:destination="@id/navigation_add_event" />
+    </fragment>
 
+
+    <fragment
+        android:id="@+id/navigation_add_event"
+        android:name="com.example.apollo.ui.organizer.events.AddEventFragment"
+        android:label="Add New Event"
+        tools:layout="@layout/fragment_add_event">
+
+        <action
+            android:id="@+id/action_navigation_add_event_to_navigation_events"
+            app:destination="@id/navigation_events" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_profile"

@@ -27,7 +27,7 @@
         android:id="@+id/navigation_events"
         android:name="com.example.apollo.ui.profile.entrants.EventsFragment"
         android:label="@string/title_events"
-        tools:layout="@layout/fragment_events" />
+        tools:layout="@layout/organiser_fragment_events" />
 
     <fragment
         android:id="@+id/navigation_event_details"
