@@ -53,7 +53,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         ImageButton backButton = view.findViewById(R.id.back_button);
         backButton.setOnClickListener(v -> {
                     NavController navController = NavHostFragment.findNavController(this);
-                    navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_events);
+                    navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
         });
 
         buttonEditEvent.setOnClickListener(v -> {
@@ -62,7 +62,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
             // Navigate to AddEventFragment
             NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.navigation_add_event, bundle);
+            navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
 
@@ -116,13 +116,13 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         textEventDescription.setText(description != null ? description : "No description available");
 
                         textEventSummary.setText(
-                                "Location: " + locationText +
-                                        "\nDate: " + dateText +
-                                        "\nTime: " + timeText +
-                                        "\nPrice: " + priceText +
-                                        "\nRegistration: " + registrationPeriod +
-                                        "\n" + capacityText +
-                                        "\n" + waitlistText
+                                "Location: " + locationText + "\n" +
+                                        "Date: " + dateText + "\n" +
+                                        "Time: " + timeText + "\n" +
+                                        "Price: " + priceText + "\n" +
+                                        "Registration: " + registrationPeriod + "\n" +
+                                        capacityText + "\n" +
+                                        waitlistText
                         );
 
 
