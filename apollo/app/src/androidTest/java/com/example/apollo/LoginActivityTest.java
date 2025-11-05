@@ -23,6 +23,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.not;
 
+import com.example.apollo.ui.login.LoginActivity;
+
 @RunWith(AndroidJUnit4.class)
 public class LoginActivityTest {
 

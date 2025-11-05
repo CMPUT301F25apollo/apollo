@@ -22,6 +22,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import com.example.apollo.ui.login.SignUpActivity;
+
 @RunWith(AndroidJUnit4.class)
 public class SignUpActivityTest {
 
