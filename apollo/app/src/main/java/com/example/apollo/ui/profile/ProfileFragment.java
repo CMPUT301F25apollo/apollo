@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
@@ -26,6 +27,8 @@ public class ProfileFragment extends Fragment {
     private TextView tvName;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
+    private Button buttonLogin;
+    private Group profileGroup;
 
     @Nullable
     @Override
@@ -42,39 +45,58 @@ public class ProfileFragment extends Fragment {
         tvName = v.findViewById(R.id.tvName);
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
+        buttonLogin = v.findViewById(R.id.buttonLogin);
+        profileGroup = v.findViewById(R.id.profile_group);
 
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            String uid = currentUser.getUid();
-            DocumentReference userRef = db.collection("users").document(uid);
-            userRef.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (document.exists()) {
-                        String name = document.getString("name");
-                        tvName.setText(name);
-                    }
-                }
-            });
-        }
+        boolean isGuest = getActivity().getIntent().getBooleanExtra("isGuest", false);
 
-        v.findViewById(R.id.btnSettings).setOnClickListener(view ->
-                NavHostFragment.findNavController(ProfileFragment.this)
-                        .navigate(R.id.navigation_settings)
-        );
-
-        Button btnLogout = v.findViewById(R.id.btnLogout);
-        btnLogout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                FirebaseAuth.getInstance().signOut();
+        if (isGuest) {
+            profileGroup.setVisibility(View.GONE);
+            buttonLogin.setVisibility(View.VISIBLE);
+            buttonLogin.setOnClickListener(view -> {
                 Intent intent = new Intent(getActivity(), LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
                 if (getActivity() != null) {
                     getActivity().finish();
                 }
+            });
+        } else {
+            profileGroup.setVisibility(View.VISIBLE);
+            buttonLogin.setVisibility(View.GONE);
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                String uid = currentUser.getUid();
+                DocumentReference userRef = db.collection("users").document(uid);
+                userRef.get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document.exists()) {
+                            String name = document.getString("name");
+                            tvName.setText(name);
+                        }
+                    }
+                });
             }
-        });
+
+            v.findViewById(R.id.btnSettings).setOnClickListener(view ->
+                    NavHostFragment.findNavController(ProfileFragment.this)
+                            .navigate(R.id.navigation_settings)
+            );
+
+            Button btnLogout = v.findViewById(R.id.btnLogout);
+            btnLogout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    FirebaseAuth.getInstance().signOut();
+                    Intent intent = new Intent(getActivity(), LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    if (getActivity() != null) {
+                        getActivity().finish();
+                    }
+                }
+            });
+        }
     }
 }
