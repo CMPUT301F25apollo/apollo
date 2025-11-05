@@ -22,7 +22,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private EditText editTextEmail, editTextPassword;
     private Button buttonLogin;
-    private TextView textViewSignUp;
+    private TextView textViewSignUp, textViewGuest;
 
     private FirebaseAuth mAuth;
 
@@ -48,6 +48,7 @@ public class LoginActivity extends AppCompatActivity {
         editTextPassword = findViewById(R.id.editTextPassword);
         buttonLogin = findViewById(R.id.buttonLogin);
         textViewSignUp = findViewById(R.id.textViewSignUp);
+        textViewGuest = findViewById(R.id.textViewGuest);
 
         // Login button click
         buttonLogin.setOnClickListener(new View.OnClickListener() {
@@ -95,6 +96,16 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(LoginActivity.this, SignUpActivity.class));
+            }
+        });
+
+        // Guest mode text click
+        textViewGuest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                intent.putExtra("isGuest", true);
+                startActivity(intent);
             }
         });
     }

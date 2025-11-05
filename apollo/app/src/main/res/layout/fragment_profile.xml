@@ -8,6 +8,23 @@
     android:padding="24dp"
     tools:context=".ui.profile.ProfileFragment">
 
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/profile_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:constraint_referenced_ids="btnSettings,avatarContainer,tvName,sectionEvents,listContainer,btnLogout" />
+
+    <Button
+        android:id="@+id/buttonLogin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Login"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone" />
+
     <!-- settings icon -->
     <ImageButton
         android:id="@+id/btnSettings"
