@@ -13,13 +13,21 @@
         android:theme="@style/Theme.Apollo">
         <activity
             android:name=".OrganizerActivity"
-            android:exported="true"
-            android:label="@string/app_name">
+            android:exported="false">
+        </activity>
+
+        <activity android:name=".MainActivity" />
+        <activity android:name=".SignUpActivity" />
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>
