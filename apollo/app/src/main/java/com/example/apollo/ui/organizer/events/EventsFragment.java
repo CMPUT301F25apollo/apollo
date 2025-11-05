@@ -41,7 +41,7 @@ public class EventsFragment extends Fragment {
         // Add new event button
         binding.addNewEventButton.setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_navigation_events_to_navigation_add_event);
+            navController.navigate(R.id.action_navigation_organizer_events_to_navigation_organizer_add_event);
         });
 
         return root;
@@ -74,7 +74,7 @@ public class EventsFragment extends Fragment {
                             bundle.putString("eventId", eventId);
 
                             NavController navController = NavHostFragment.findNavController(this);
-                            navController.navigate(R.id.action_navigation_events_to_organizer_event_details, bundle);
+                            navController.navigate(R.id.action_navigation_organizer_events_to_organizer_event_details, bundle);
                         });
 
                         container.addView(card);

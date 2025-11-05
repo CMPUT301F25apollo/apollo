@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -25,6 +26,7 @@ import java.util.Map;
 public class SignUpActivity extends AppCompatActivity {
 
     private EditText editTextName, editTextEmail, editTextPassword, editTextPhoneNumber, editTextUsername;
+    private CheckBox checkboxOrganizer;
     private Button buttonSignUp;
 
     private FirebaseAuth mAuth;
@@ -43,6 +45,7 @@ public class SignUpActivity extends AppCompatActivity {
         editTextPassword = findViewById(R.id.editTextPassword);
         editTextPhoneNumber = findViewById(R.id.editTextPhoneNumber);
         editTextUsername = findViewById(R.id.editTextUsername);
+        checkboxOrganizer = findViewById(R.id.checkbox_organizer);
         buttonSignUp = findViewById(R.id.buttonSignUp);
 
         buttonSignUp.setOnClickListener(new View.OnClickListener() {
@@ -53,6 +56,7 @@ public class SignUpActivity extends AppCompatActivity {
                 String password = editTextPassword.getText().toString().trim();
                 String phoneNumber = editTextPhoneNumber.getText().toString().trim();
                 String username = editTextUsername.getText().toString().trim();
+                boolean isOrganizer = checkboxOrganizer.isChecked();
 
                 if (TextUtils.isEmpty(name)) {
                     editTextName.setError("Name is required.");
@@ -91,6 +95,8 @@ public class SignUpActivity extends AppCompatActivity {
                                     user.put("email", email);
                                     user.put("phoneNumber", phoneNumber);
                                     user.put("username", username);
+                                    String role = isOrganizer ? "organizer" : "entrant";
+                                    user.put("role", role);
 
                                     db.collection("users").document(userId)
                                             .set(user)
