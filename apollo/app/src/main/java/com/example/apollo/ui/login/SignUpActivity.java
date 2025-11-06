@@ -95,10 +95,10 @@ public class SignUpActivity extends AppCompatActivity {
                                     user.put("email", email);
                                     user.put("phoneNumber", phoneNumber);
                                     user.put("username", username);
-                                    String role = isOrganizer ? "organizer" : "entrant";
+                                    String role = isOrganizer ? "organizers" : "users";
                                     user.put("role", role);
 
-                                    db.collection("users").document(userId)
+                                    db.collection(role).document(userId)
                                             .set(user)
                                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                                 @Override
