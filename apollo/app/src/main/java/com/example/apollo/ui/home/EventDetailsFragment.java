@@ -33,6 +33,7 @@ public class EventDetailsFragment extends Fragment {
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private TextView textEventTitle, textEventDescription, textEventSummary, loginText;
+    private TextView textWaitlistCount;
     private Button buttonJoinWaitlist;
     private ImageButton backButton;
 
@@ -59,6 +60,7 @@ public class EventDetailsFragment extends Fragment {
         buttonJoinWaitlist = view.findViewById(R.id.buttonJoinWaitlist);
         loginText = view.findViewById(R.id.loginText);
         backButton = view.findViewById(R.id.back_button);
+        textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
 
         // Get arguments
         if (getArguments() != null) {
@@ -94,6 +96,11 @@ public class EventDetailsFragment extends Fragment {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
             initWaitlistState();
+        }
+        if (getArguments() != null) {
+            eventId = getArguments().getString("eventId");
+            loadEventDetails(eventId);
+            listenToWaitlistCount(eventId); // added here
         }
 
         return view;
@@ -149,7 +156,7 @@ public class EventDetailsFragment extends Fragment {
                         Log.e("Firestore", "Error loading event details", e));
     }
 
-    // 🔹 Waitlist logic below
+    //waitlist logic below
 
     private void initWaitlistState() {
         setLoading(true);
@@ -201,6 +208,28 @@ public class EventDetailsFragment extends Fragment {
     private DocumentReference waitlistRef() {
         return db.collection("events").document(eventId)
                 .collection("waitlist").document(uid);
+    }
+
+    //waitlist count function
+    private void listenToWaitlistCount(String eventId) {
+        if (eventId == null) return;
+
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Log.e("Firestore", "Listen failed: ", e);
+                        return;
+                    }
+
+                    if (snapshots != null) {
+                        int count = snapshots.size();
+                        textWaitlistCount.setText("Waitlist count: " + count);
+                    } else {
+                        textWaitlistCount.setText("Waitlist count: N/A");
+                    }
+                });
     }
 
     private void renderButton() {
