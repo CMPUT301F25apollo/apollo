@@ -8,16 +8,31 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 public class OrganizerEventDetailsFragment extends Fragment {
 
@@ -26,6 +41,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
 
     private String eventId;
+    // NEW: hold event title for notification text
+    private String eventName = "Event";
 
     @Nullable
     @Override
@@ -36,6 +53,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_organizer_event_details, container, false);
 
         db = FirebaseFirestore.getInstance();
+
 
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
@@ -49,7 +67,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
             loadEventDetails(eventId);
         }
 
-        // Back navigation example (if you add a back button later)
         ImageButton backButton = view.findViewById(R.id.back_button);
         backButton.setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
@@ -58,22 +75,20 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
         buttonEditEvent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
-            bundle.putString("eventId", eventId); // pass Firestore document ID
-
-            // Navigate to AddEventFragment
+            bundle.putString("eventId", eventId);
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
-
-        buttonSendLottery.setOnClickListener(v ->
-                Log.d("Organizer", "Send Lottery clicked for event " + eventId));
+        // CHANGED: wire lottery action
+        buttonSendLottery.setOnClickListener(v -> {
+            if (eventId == null) return;
+            askForWinnerCountAndRunLottery(eventId, eventName);
+        });
 
         buttonViewParticipants.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
-            bundle.putString("eventId", eventId); // pass Firestore document ID
-
-            // Navigate to AddEventFragment
+            bundle.putString("eventId", eventId);
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.navigation_event_waitlist, bundle);
         });
@@ -86,7 +101,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
         eventRef.get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
-                        // Extract all fields safely
                         String title = document.getString("title");
                         String description = document.getString("description");
                         String location = document.getString("location");
@@ -99,7 +113,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
 
-                        // Build formatted strings safely (with fallbacks)
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
@@ -117,10 +130,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
 
-                        // Update UI
+                        // NEW: keep a safe event name for notifications
+                        eventName = (title != null && !title.isEmpty()) ? title : "Event";
+
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
-
                         textEventSummary.setText(
                                 "Location: " + locationText + "\n" +
                                         "Date: " + dateText + "\n" +
@@ -131,7 +145,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         waitlistText
                         );
 
-
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
@@ -140,5 +153,106 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Log.e("Firestore", "Error loading event details", e));
     }
 
-}
+    // ===================== LOTTERY HELPERS (added) =====================
 
+    private void askForWinnerCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
+        EditText input = new EditText(requireContext());
+        input.setHint("Number of winners");
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Hit Lottery")
+                .setMessage("How many entrants should be selected?")
+                .setView(input)
+                .setPositiveButton("Run", (dlg, which) -> {
+                    String s = input.getText().toString().trim();
+                    if (s.isEmpty()) {
+                        Toast.makeText(getContext(), "Enter a number", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    int k;
+                    try {
+                        k = Integer.parseInt(s);
+                    } catch (Exception e) {
+                        k = 0;
+                    }
+                    if (k <= 0) {
+                        Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    runLottery(eventId, eventName, k);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 1) Load candidates from waitlist where state == "waiting"
+        db.collection("events").document(eventId)
+                .collection("waitlist")
+                .whereEqualTo("state", "waiting")
+                .get()
+                .addOnSuccessListener(snap -> {
+                    List<String> candidates = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        candidates.add(d.getId()); // waitlist docId == uid
+                    }
+
+                    if (candidates.isEmpty()) {
+                        Toast.makeText(getContext(), "No entrants in waitlist.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Collections.shuffle(candidates, new Random());
+                    int K = Math.min(winnersToPick, candidates.size());
+                    List<String> winners = candidates.subList(0, K);
+
+                    WriteBatch batch = db.batch();
+                    for (String uid : winners) {
+                        // events/{eventId}/invites/{uid}
+                        DocumentReference inviteRef = db.collection("events")
+                                .document(eventId)
+                                .collection("invites")
+                                .document(uid);
+                        Map<String, Object> invite = new HashMap<>();
+                        invite.put("status", "invited");
+                        invite.put("invitedAt", FieldValue.serverTimestamp());
+                        batch.set(inviteRef, invite, SetOptions.merge());
+
+                        // users/{uid}/notifications/{autoId}
+                        DocumentReference notifRef = db.collection("users")
+                                .document(uid)
+                                .collection("notifications")
+                                .document();
+                        Map<String, Object> notif = new HashMap<>();
+                        notif.put("type", "lottery_win");
+                        notif.put("eventId", eventId);
+                        notif.put("title", "You were selected!");
+                        notif.put("message", "You won the lottery for " + eventName + ". Tap to register.");
+                        notif.put("createdAt", FieldValue.serverTimestamp());
+                        notif.put("read", false);
+                        batch.set(notifRef, notif);
+
+                        // remove from waitlist entirely
+                        DocumentReference wlRef = db.collection("events")
+                                .document(eventId)
+                                .collection("waitlist")
+                                .document(uid);
+                        batch.delete(wlRef);
+                    }
+
+                    batch.commit()
+                            .addOnSuccessListener(u -> Toast.makeText(getContext(),
+                                    "Lottery sent to " + K + " entrant(s).", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e -> Toast.makeText(getContext(),
+                                    "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                })
+                .addOnFailureListener(e -> Toast.makeText(getContext(),
+                        "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+
+
+        // =================== END LOTTERY HELPERS (added) ===================
+    }
+}
