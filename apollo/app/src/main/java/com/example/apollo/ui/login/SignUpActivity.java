@@ -3,6 +3,7 @@ package com.example.apollo.ui.login;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -37,9 +38,11 @@ public class SignUpActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_up);
 
+        // Initialize Firebase instances
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
+        // Bind UI elements
         editTextName = findViewById(R.id.editTextName);
         editTextEmail = findViewById(R.id.editTextEmail);
         editTextPassword = findViewById(R.id.editTextPassword);
@@ -48,80 +51,100 @@ public class SignUpActivity extends AppCompatActivity {
         checkboxOrganizer = findViewById(R.id.checkbox_organizer);
         buttonSignUp = findViewById(R.id.buttonSignUp);
 
-        buttonSignUp.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String name = editTextName.getText().toString().trim();
-                String email = editTextEmail.getText().toString().trim();
-                String password = editTextPassword.getText().toString().trim();
-                String phoneNumber = editTextPhoneNumber.getText().toString().trim();
-                String username = editTextUsername.getText().toString().trim();
-                boolean isOrganizer = checkboxOrganizer.isChecked();
+        // Handle sign up
+        buttonSignUp.setOnClickListener(v -> attemptSignUp());
+    }
 
-                if (TextUtils.isEmpty(name)) {
-                    editTextName.setError("Name is required.");
-                    return;
-                }
+    private void attemptSignUp() {
+        String name = editTextName.getText().toString().trim();
+        String email = editTextEmail.getText().toString().trim();
+        String password = editTextPassword.getText().toString().trim();
+        String phoneNumber = editTextPhoneNumber.getText().toString().trim();
+        String username = editTextUsername.getText().toString().trim();
+        boolean isOrganizer = checkboxOrganizer.isChecked();
 
-                if (TextUtils.isEmpty(email)) {
-                    editTextEmail.setError("Email is required.");
-                    return;
-                }
+        // -------- Validation checks --------
+        if (TextUtils.isEmpty(name)) {
+            editTextName.setError("Name is required.");
+            return;
+        }
+        if (TextUtils.isEmpty(email)) {
+            editTextEmail.setError("Email is required.");
+            return;
+        }
+        if (TextUtils.isEmpty(password)) {
+            editTextPassword.setError("Password is required.");
+            return;
+        }
+        if (password.length() < 6) {
+            editTextPassword.setError("Password must be at least 6 characters.");
+            return;
+        }
+        if (TextUtils.isEmpty(phoneNumber)) {
+            editTextPhoneNumber.setError("Phone number is required.");
+            return;
+        }
+        if (TextUtils.isEmpty(username)) {
+            editTextUsername.setError("Username is required.");
+            return;
+        }
 
-                if (TextUtils.isEmpty(password)) {
-                    editTextPassword.setError("Password is required.");
-                    return;
-                }
+        // -------- Firebase Authentication --------
+        mAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        // ✅ Authentication successful
+                        String userId = mAuth.getCurrentUser().getUid();
+                        saveUserToFirestore(userId, name, email, phoneNumber, username, isOrganizer);
+                    } else {
+                        // ❌ Authentication failed
+                        String errorMsg = (task.getException() != null)
+                                ? task.getException().getMessage()
+                                : "Unknown error";
+                        Toast.makeText(SignUpActivity.this,
+                                "Authentication failed: " + errorMsg,
+                                Toast.LENGTH_LONG).show();
+                        Log.e("SignUp", "Auth failed", task.getException());
+                    }
+                });
+    }
 
-                if (TextUtils.isEmpty(phoneNumber)) {
-                    editTextPhoneNumber.setError("Phone number is required.");
-                    return;
-                }
+    private void saveUserToFirestore(String userId, String name, String email,
+                                     String phoneNumber, String username, boolean isOrganizer) {
 
-                if (TextUtils.isEmpty(username)) {
-                    editTextUsername.setError("Username is required.");
-                    return;
-                }
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("name", name);
+        userData.put("email", email);
+        userData.put("phoneNumber", phoneNumber);
+        userData.put("username", username);
+        userData.put("isOrganizer", isOrganizer);
+        userData.put("createdAt", System.currentTimeMillis());
 
-                mAuth.createUserWithEmailAndPassword(email, password)
-                        .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                            @Override
-                            public void onComplete(@NonNull Task<AuthResult> task) {
-                                if (task.isSuccessful()) {
-                                    // Sign in success, update UI with the signed-in user's information
-                                    String userId = mAuth.getCurrentUser().getUid();
-                                    Map<String, Object> user = new HashMap<>();
-                                    user.put("name", name);
-                                    user.put("email", email);
-                                    user.put("phoneNumber", phoneNumber);
-                                    user.put("username", username);
-                                    String role = isOrganizer ? "organizers" : "users";
-                                    user.put("role", role);
+        // Save under "users" collection
+        db.collection("users").document(userId)
+                .set(userData)
+                .addOnSuccessListener(aVoid -> {
+                    // Also mirror under "organizers" if applicable
+                    if (isOrganizer) {
+                        db.collection("organizers").document(userId)
+                                .set(userData)
+                                .addOnSuccessListener(unused -> Log.d("SignUp", "Organizer added"))
+                                .addOnFailureListener(e -> Log.e("SignUp", "Failed to add organizer", e));
+                    }
 
-                                    db.collection(role).document(userId)
-                                            .set(user)
-                                            .addOnCompleteListener(new OnCompleteListener<Void>() {
-                                                @Override
-                                                public void onComplete(@NonNull Task<Void> task) {
-                                                    if (task.isSuccessful()) {
-                                                        Toast.makeText(SignUpActivity.this, "Sign up successful.",
-                                                                Toast.LENGTH_SHORT).show();
-                                                        startActivity(new Intent(SignUpActivity.this, MainActivity.class));
-                                                        finish();
-                                                    } else {
-                                                        Toast.makeText(SignUpActivity.this, "Error: " + task.getException().getMessage(),
-                                                                Toast.LENGTH_SHORT).show();
-                                                    }
-                                                }
-                                            });
-                                } else {
-                                    // If sign in fails, display a message to the user.
-                                    Toast.makeText(SignUpActivity.this, "Authentication failed: " + task.getException().getMessage(),
-                                            Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                        });
-            }
-        });
+                    Toast.makeText(SignUpActivity.this,
+                            "Sign-up successful!",
+                            Toast.LENGTH_SHORT).show();
+
+                    // Go to main screen
+                    startActivity(new Intent(SignUpActivity.this, MainActivity.class));
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(SignUpActivity.this,
+                            "Failed to save user: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                    Log.e("SignUp", "Firestore save failed", e);
+                });
     }
 }

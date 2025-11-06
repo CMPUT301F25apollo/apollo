@@ -17,6 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -147,12 +148,15 @@ public class AddEventFragment extends Fragment {
     }
 
     private void uploadImageAndSaveEvent() {
-        String filename = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("event_images/" + filename);
+        String filename = UUID.randomUUID().toString() + ".jpg";
+        StorageReference imageRef = storageRef.child("event_posters/" + filename);
 
         imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl()
-                        .addOnSuccessListener(uri -> saveEvent(uri.toString()))
+                        .addOnSuccessListener(uri -> {
+                            String downloadUrl = uri.toString();
+                            saveEvent(downloadUrl); // Pass URL to Firestore
+                        })
                         .addOnFailureListener(e ->
                                 Toast.makeText(getContext(), "Failed to get image URL", Toast.LENGTH_SHORT).show()))
                 .addOnFailureListener(e ->
@@ -161,7 +165,7 @@ public class AddEventFragment extends Fragment {
 
     private void saveEvent(String imageUrl) {
         Map<String, Object> event = buildEventMap();
-        if (imageUrl != null) event.put("imageUrl", imageUrl);
+        if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
         if (eventId != null) {
             db.collection("events").document(eventId)
@@ -213,10 +217,11 @@ public class AddEventFragment extends Fragment {
                 registrationClose.setText(document.getString("registrationClose"));
 
                 // Load existing image URL if available
-                if (document.contains("imageUrl")) {
-                    existingImageUrl = document.getString("imageUrl");
-                    // Optionally, use Glide or Picasso to load URL into ImageView
-                    // Glide.with(getContext()).load(existingImageUrl).into(eventImagePreview);
+                if (document.contains("eventPosterUrl")) {
+                    existingImageUrl = document.getString("eventPosterUrl");
+                    Glide.with(requireContext())
+                            .load(existingImageUrl)
+                            .into(eventImagePreview);
                 }
             }
         }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));

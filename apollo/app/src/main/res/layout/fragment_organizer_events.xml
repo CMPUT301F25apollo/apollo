@@ -34,19 +34,18 @@
     <!-- Scrollable list of events -->
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_weight="1"
         android:fillViewport="true"
-        android:translationY="10dp"
         android:paddingBottom="80dp"
-        >
+        android:translationY="10dp">
 
         <!-- Container where new events will be added -->
         <LinearLayout
             android:id="@+id/eventsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:orientation="vertical"
+            android:descendantFocusability="blocksDescendants" />
     </ScrollView>
-
 </LinearLayout>

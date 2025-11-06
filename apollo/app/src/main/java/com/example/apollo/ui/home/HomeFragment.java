@@ -5,20 +5,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
 import com.example.apollo.databinding.FragmentHomeBinding;
-import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -52,18 +51,28 @@ public class HomeFragment extends Fragment {
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String eventId = document.getId();
                         String title = document.getString("title");
-                        String description = document.getString("description");
-                        String location = document.getString("location");
-                        String time = document.getString("time");
-                        String date = document.getString("date");
+                        String posterUrl = document.getString("eventPosterUrl"); // ✅ add this line
 
+                        // Inflate the event card layout
                         View card = LayoutInflater.from(getContext())
                                 .inflate(R.layout.item_event_card, container, false);
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
+                        ImageView posterView = card.findViewById(R.id.eventPosterImage);
 
                         titleView.setText(title);
 
+                        Log.d("FirestorePoster", "Loaded poster URL for " + title + ": " + posterUrl);
+
+                        // ✅ Use Glide to load the image
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .centerCrop()
+                                    .into(posterView);
+                        } else
+
+                        // Click → go to event details
                         card.setOnClickListener(v -> {
                             Bundle bundle = new Bundle();
                             bundle.putString("eventId", eventId);

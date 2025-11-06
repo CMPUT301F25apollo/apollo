@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -15,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -24,6 +26,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
+    private ImageView eventPosterImage;
 
     private String eventId;
 
@@ -43,6 +46,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonEditEvent = view.findViewById(R.id.buttonEditEvent);
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
+        eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
@@ -88,6 +92,18 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String time = document.getString("time");
                         String registrationOpen = document.getString("registrationOpen");
                         String registrationClose = document.getString("registrationClose");
+
+                        String posterUrl = document.getString("eventPosterUrl"); // 👈 NEW
+
+                        Log.d("PosterURL", "Loaded poster URL: " + posterUrl);
+
+                        // 👇 Load poster image if available
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(requireContext())
+                                    .load(posterUrl)
+                                    .into(eventPosterImage);
+                        }
+
 
                         Long eventCapacity = document.getLong("eventCapacity");
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
