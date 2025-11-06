@@ -21,6 +21,22 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * SettingsFragment.java
+ *
+ * Purpose:
+ * Provides a user interface for viewing and updating the current user's profile information,
+ * including name, username, email, and phone number. Retrieves and saves data from Firebase Firestore.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, mediating between the view (EditText fields and Button)
+ * and the model (Firestore user data).
+ *
+ * Outstanding Issues / TODOs:
+ * - Add input validation for email and phone formats.
+ * - Improve error handling for Firestore operations.
+ * - Consider adding a loading indicator while profile data is being fetched or saved.
+ */
 public class SettingsFragment extends Fragment {
 
     private EditText editName, editUsername, editEmail, editPhone;
@@ -29,6 +45,14 @@ public class SettingsFragment extends Fragment {
     private FirebaseFirestore db;
     private FirebaseUser currentUser;
 
+    /**
+     * Inflates the layout for this fragment.
+     *
+     * @param inflater The LayoutInflater object that can be used to inflate views.
+     * @param container The parent view that the fragment's UI should attach to.
+     * @param savedInstanceState Bundle containing saved state, if any.
+     * @return The root View for the fragment's UI.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -37,6 +61,13 @@ public class SettingsFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_settings, container, false);
     }
 
+    /**
+     * Called after the view has been created. Initializes UI components, Firestore instance,
+     * loads user profile if a user is signed in, and sets up the save button click listener.
+     *
+     * @param view The View returned by onCreateView().
+     * @param savedInstanceState Bundle containing saved state, if any.
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -57,6 +88,9 @@ public class SettingsFragment extends Fragment {
         saveButton.setOnClickListener(v -> saveUserProfile());
     }
 
+    /**
+     * Loads the current user's profile data from Firestore and populates the EditText fields.
+     */
     private void loadUserProfile() {
         DocumentReference userRef = db.collection("users").document(currentUser.getUid());
         userRef.get().addOnSuccessListener(documentSnapshot -> {
@@ -74,6 +108,9 @@ public class SettingsFragment extends Fragment {
         });
     }
 
+    /**
+     * Saves the updated profile information to Firestore. Displays Toast messages on success or failure.
+     */
     private void saveUserProfile() {
         String name = editName.getText().toString().trim();
         String username = editUsername.getText().toString().trim();
