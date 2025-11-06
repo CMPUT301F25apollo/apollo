@@ -77,7 +77,9 @@ public class EventDetailsFragment extends Fragment {
         if (currentUser == null) {
             // Not signed in
             loginText.setVisibility(View.VISIBLE);
-            buttonJoinWaitlist.setEnabled(false);
+            buttonJoinWaitlist.setOnClickListener(v->{
+                Toast.makeText(getContext(), "Login to join waitlist", Toast.LENGTH_SHORT).show();
+            });
 
             loginText.setOnClickListener(v -> {
                 Intent intent = new Intent(getActivity(), LoginActivity.class);
