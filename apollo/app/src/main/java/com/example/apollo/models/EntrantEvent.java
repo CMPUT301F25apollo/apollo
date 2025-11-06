@@ -1,4 +1,4 @@
-package com.example.apollo.ui.profile.entrants;
+package com.example.apollo.models;
 
 import java.util.ArrayList;
 import java.util.List;
