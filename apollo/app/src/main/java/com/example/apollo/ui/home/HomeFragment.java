@@ -1,86 +1,55 @@
 package com.example.apollo.ui.home;
 
+
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.Button;
+import android.widget.Toast;
+
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModel;
-import androidx.lifecycle.ViewModelProvider;
-import androidx.navigation.NavController;
-import androidx.navigation.fragment.NavHostFragment;
+import androidx.navigation.Navigation;
+
 
 import com.example.apollo.R;
-import com.example.apollo.databinding.FragmentHomeBinding;
-import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 
 public class HomeFragment extends Fragment {
 
-    private FragmentHomeBinding binding;
-    private FirebaseFirestore db;
 
+    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        binding = FragmentHomeBinding.inflate(inflater, container, false);
-        View root = binding.getRoot();
 
-        db = FirebaseFirestore.getInstance();
-        HomeViewModel homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+        //grab existing buttons
+        Button event1 = view.findViewById(R.id.button_event1);
+        Button event2 = view.findViewById(R.id.button_event2);
+        Button event3 = view.findViewById(R.id.button_event3);
+        Button event4 = view.findViewById(R.id.button_event4);
+        Button[] buttons = new Button[]{event1, event2, event3, event4};
 
-        loadEvents();
 
-        return root;
-    }
+        //show loading state
+        for (Button b : buttons) {
+            b.setEnabled(false);
+            b.setText("Loading…");
+        }
 
-    private void loadEvents() {
+
+        // first few events from firestore and fill the buttons
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("events")
                 .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    LinearLayout container = binding.eventsContainer;
-                    container.removeAllViews();
+                .addOnSuccessListener(snaps -> {
+                    int i = 0;
+                    for (DocumentSnapshot d : snaps) {
+                        if (i >= buttons.length) break;
 
-                    for (QueryDocumentSnapshot document : querySnapshot) {
-                        String eventId = document.getId();
-                        String title = document.getString("title");
-                        String description = document.getString("description");
-                        String location = document.getString("location");
-                        String time = document.getString("time");
-                        String date = document.getString("date");
-
-                        View card = LayoutInflater.from(getContext())
-                                .inflate(R.layout.item_event_card, container, false);
-
-                        TextView titleView = card.findViewById(R.id.eventTitle);
-
-                        titleView.setText(title);
-
-                        card.setOnClickListener(v -> {
-                            Bundle bundle = new Bundle();
-                            bundle.putString("eventId", eventId);
-
-                            NavController navController = NavHostFragment.findNavController(this);
-                            navController.navigate(R.id.action_navigation_home_to_navigation_event_details, bundle);
-                        });
-
-                        container.addView(card);
-                    }
-                })
-                .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        binding = null;
-    }
-}
