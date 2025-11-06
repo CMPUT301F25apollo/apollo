@@ -41,26 +41,22 @@
         <action
             android:id="@+id/action_navigation_organizer_event_details_to_navigation_organizer_events"
             app:destination="@id/navigation_organizer_events" />
+
+        <action
+            android:id="@+id/action_navigation_organizer_event_details_to_navigation_event_waitlist"
+            app:destination="@id/navigation_event_waitlist" />
     </fragment>
 
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.apollo.ui.organizer.profile.ProfileFragment"
         android:label="@string/title_profile"
-        tools:layout="@layout/fragment_profile_organizer" >
-        <action
-            android:id="@+id/action_navigation_profile_to_navigation_event_waitlist"
-            app:destination="@id/navigation_event_waitlist" />
-    </fragment>
+        tools:layout="@layout/fragment_profile_organizer" />
 
     <fragment
         android:id="@+id/navigation_event_waitlist"
         android:name="com.example.apollo.ui.organizer.events.EventWaitlistFragment"
         android:label="Event Waitlist"
-        tools:layout="@layout/fragment_event_waitlist" >
-        <action
-            android:id="@+id/action_navigation_event_waitlist_to_navigation_profile"
-            app:destination="@id/navigation_profile" />
-    </fragment>
+        tools:layout="@layout/fragment_event_waitlist" />
 
 </navigation>

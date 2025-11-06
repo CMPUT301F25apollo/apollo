@@ -1,10 +1,13 @@
 package com.example.apollo.ui.organizer.events;
 
 import android.os.Bundle;
-import android.view.MenuItem;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -12,31 +15,103 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class EventWaitlistFragment extends Fragment {
+
+    private ListView listView;
+    private TextView emptyTextView;
+    private ArrayAdapter<String> adapter;
+    private List<String> entrantsList = new ArrayList<>();
+
+    private FirebaseFirestore db;
+    private String eventId;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_event_waitlist, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_event_waitlist, container, false);
+
+        listView = view.findViewById(R.id.listView);
+        emptyTextView = view.findViewById(R.id.textView);
+
+        // Setup adapter
+        adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, entrantsList);
+        listView.setAdapter(adapter);
+
+        db = FirebaseFirestore.getInstance();
+
+        // Get eventId from arguments
+        if (getArguments() != null) {
+            eventId = getArguments().getString("eventId");
+            loadWaitlistEntrants();
+        }
+
+        return view;
+    }
+
+    private void loadWaitlistEntrants() {
+        if (eventId == null) return;
+
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    entrantsList.clear();
+
+                    if (querySnapshot.isEmpty()) {
+                        emptyTextView.setText("No entrants in waitlist");
+                        adapter.notifyDataSetChanged();
+                        return;
+                    }
+
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String entrantId = doc.getId();
+
+                        // Fetch user info from "users" collection
+                        db.collection("users")
+                                .document(entrantId)
+                                .get()
+                                .addOnSuccessListener(userDoc -> {
+                                    String name = userDoc.getString("name");
+                                    if (name != null) entrantsList.add(name);
+                                    else entrantsList.add(entrantId); // fallback to ID
+
+                                    adapter.notifyDataSetChanged();
+                                })
+                                .addOnFailureListener(e -> {
+                                    // fallback to ID on failure
+                                    entrantsList.add(entrantId);
+                                    adapter.notifyDataSetChanged();
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> emptyTextView.setText("Failed to load waitlist"));
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // This allows the fragment to handle the back arrow click
+        // Allow back arrow handling
         setHasOptionsMenu(true);
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            // Navigate back using Navigation Component
             NavHostFragment.findNavController(this).popBackStack();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 }
+
+
