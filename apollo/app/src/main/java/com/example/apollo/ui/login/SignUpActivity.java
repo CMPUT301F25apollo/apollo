@@ -22,6 +22,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
+import android.widget.ImageButton;
 
 public class SignUpActivity extends AppCompatActivity {
 
@@ -41,6 +42,10 @@ public class SignUpActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         editTextName = findViewById(R.id.editTextName);
+        ImageButton backButton = findViewById(R.id.back_button);
+        backButton.setOnClickListener(v -> finish());
+
+
         editTextEmail = findViewById(R.id.editTextEmail);
         editTextPassword = findViewById(R.id.editTextPassword);
         editTextPhoneNumber = findViewById(R.id.editTextPhoneNumber);
@@ -95,7 +100,11 @@ public class SignUpActivity extends AppCompatActivity {
                                     user.put("email", email);
                                     user.put("phoneNumber", phoneNumber);
                                     user.put("username", username);
+<<<<<<< Updated upstream
                                     String role = isOrganizer ? "organizers" : "entrant";
+=======
+                                    String role = isOrganizer ? "organizer" : "entrant";
+>>>>>>> Stashed changes
                                     user.put("role", role);
 
                                     db.collection("users").document(userId)
