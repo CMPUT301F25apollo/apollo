@@ -95,7 +95,7 @@ public class SignUpActivity extends AppCompatActivity {
                                     user.put("email", email);
                                     user.put("phoneNumber", phoneNumber);
                                     user.put("username", username);
-                                    String role = isOrganizer ? "organizers" : "entrant";
+                                    String role = isOrganizer ? "organizer" : "entrant";
                                     user.put("role", role);
 
                                     db.collection("users").document(userId)
