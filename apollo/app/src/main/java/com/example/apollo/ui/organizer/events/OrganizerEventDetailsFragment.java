@@ -52,8 +52,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
         // Back navigation example (if you add a back button later)
         ImageButton backButton = view.findViewById(R.id.back_button);
         backButton.setOnClickListener(v -> {
-                    NavController navController = NavHostFragment.findNavController(this);
-                    navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
         });
 
         buttonEditEvent.setOnClickListener(v -> {
@@ -69,8 +69,14 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonSendLottery.setOnClickListener(v ->
                 Log.d("Organizer", "Send Lottery clicked for event " + eventId));
 
-        buttonViewParticipants.setOnClickListener(v ->
-                Log.d("Organizer", "View Entrants clicked for event " + eventId));
+        buttonViewParticipants.setOnClickListener(v -> {
+            Bundle bundle = new Bundle();
+            bundle.putString("eventId", eventId); // pass Firestore document ID
+
+            // Navigate to AddEventFragment
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.navigation_event_waitlist, bundle);
+        });
 
         return view;
     }
@@ -135,3 +141,4 @@ public class OrganizerEventDetailsFragment extends Fragment {
     }
 
 }
+

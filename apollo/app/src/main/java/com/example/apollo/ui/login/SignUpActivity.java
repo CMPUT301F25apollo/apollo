@@ -98,7 +98,7 @@ public class SignUpActivity extends AppCompatActivity {
                                     String role = isOrganizer ? "organizers" : "users";
                                     user.put("role", role);
 
-                                    db.collection(role).document(userId)
+                                    db.collection("users").document(userId)
                                             .set(user)
                                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                                 @Override
