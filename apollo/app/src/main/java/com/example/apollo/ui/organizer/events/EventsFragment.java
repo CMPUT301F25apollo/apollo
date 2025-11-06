@@ -1,46 +1,86 @@
 package com.example.apollo.ui.organizer.events;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.Toast;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
-import com.example.apollo.databinding.FragmentEventsBinding;
+import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class EventsFragment extends Fragment {
 
-    private FragmentEventsBinding binding;
+    private FragmentOrganizerEventsBinding binding;
     private EventsViewModel eventsViewModel;
+    private FirebaseFirestore db;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
 
-        // Use view binding
-        binding = FragmentEventsBinding.inflate(inflater, container, false);
+        binding = FragmentOrganizerEventsBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
 
-        // Connect ViewModel
+        db = FirebaseFirestore.getInstance();
         eventsViewModel = new ViewModelProvider(this).get(EventsViewModel.class);
 
-        // Find the button from XML (it’s already in fragment_events.xml)
-        Button joinButton = root.findViewById(R.id.button_event_waitlist);
+        loadEvents();
 
-        // When button is clicked → join waiting list
-        joinButton.setOnClickListener(v -> {
-            // Simulate joining event with id "1" as user "hana123"
-            eventsViewModel.joinWaitingList("1", "hana123");
-            Toast.makeText(getContext(), "Joined waiting list for event 1!", Toast.LENGTH_SHORT).show();
+        // Add new event button
+        binding.addNewEventButton.setOnClickListener(v -> {
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.action_navigation_organizer_events_to_navigation_organizer_add_event);
         });
 
         return root;
+    }
+
+    private void loadEvents() {
+        db.collection("events")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    LinearLayout container = binding.eventsContainer;
+                    container.removeAllViews();
+
+                    for (QueryDocumentSnapshot document : querySnapshot) {
+                        String eventId = document.getId();
+                        String title = document.getString("title");
+                        String description = document.getString("description");
+                        String location = document.getString("location");
+                        String time = document.getString("time");
+                        String date = document.getString("date");
+
+                        View card = LayoutInflater.from(getContext())
+                                .inflate(R.layout.item_event_card, container, false);
+
+                        TextView titleView = card.findViewById(R.id.eventTitle);
+
+                        titleView.setText(title);
+
+                        card.setOnClickListener(v -> {
+                            Bundle bundle = new Bundle();
+                            bundle.putString("eventId", eventId);
+
+                            NavController navController = NavHostFragment.findNavController(this);
+                            navController.navigate(R.id.action_navigation_organizer_events_to_organizer_event_details, bundle);
+                        });
+
+                        container.addView(card);
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
 
     @Override

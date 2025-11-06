@@ -1,57 +1,86 @@
 package com.example.apollo.ui.home;
 
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
+import com.example.apollo.databinding.FragmentHomeBinding;
+import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class HomeFragment extends Fragment {
 
+    private FragmentHomeBinding binding;
+    private FirebaseFirestore db;
+
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_home, container, false);
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             ViewGroup container, Bundle savedInstanceState) {
 
-        Button event1 = view.findViewById(R.id.button_event1);
-        Button event2 = view.findViewById(R.id.button_event2);
-        Button event3 = view.findViewById(R.id.button_event3);
-        Button event4 = view.findViewById(R.id.button_event4);
+        binding = FragmentHomeBinding.inflate(inflater, container, false);
+        View root = binding.getRoot();
 
-        View.OnClickListener listener = v -> {
-            Bundle bundle = new Bundle();
+        db = FirebaseFirestore.getInstance();
+        HomeViewModel homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
 
-            if (v.getId() == R.id.button_event1) {
-                bundle.putString("eventTitle", "Beginner Swimming Lessons");
-                bundle.putString("eventDescription", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-                bundle.putString("eventRegistration", "Registration: Oct 05, 2025 - Oct 12, 2025");
-            } else if (v.getId() == R.id.button_event2) {
-                bundle.putString("eventTitle", "Interpretive Dance Safety Class");
-                bundle.putString("eventDescription", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-                bundle.putString("eventRegistration", "Registration: Dec 01, 2024 - Dec 15, 2024");
-            } else if (v.getId() == R.id.button_event3) {
-                bundle.putString("eventTitle", "Beginner Piano Lessons");
-                bundle.putString("eventDescription", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-                bundle.putString("eventRegistration", "Registration: Nov 01, 2025 - Nov 10, 2025");
-            } else {
-                bundle.putString("eventTitle", "Community Gardening Workshop");
-                bundle.putString("eventDescription", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-                bundle.putString("eventRegistration", "Registration: Sep 01, 2025 - Sep 08, 2025");
-            }
+        loadEvents();
 
-            Navigation.findNavController(v)
-                    .navigate(R.id.navigation_event_details, bundle);
-        };
+        return root;
+    }
 
-        event1.setOnClickListener(listener);
-        event2.setOnClickListener(listener);
-        event3.setOnClickListener(listener);
-        event4.setOnClickListener(listener);
+    private void loadEvents() {
+        db.collection("events")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    LinearLayout container = binding.eventsContainer;
+                    container.removeAllViews();
 
-        return view;
+                    for (QueryDocumentSnapshot document : querySnapshot) {
+                        String eventId = document.getId();
+                        String title = document.getString("title");
+                        String description = document.getString("description");
+                        String location = document.getString("location");
+                        String time = document.getString("time");
+                        String date = document.getString("date");
+
+                        View card = LayoutInflater.from(getContext())
+                                .inflate(R.layout.item_event_card, container, false);
+
+                        TextView titleView = card.findViewById(R.id.eventTitle);
+
+                        titleView.setText(title);
+
+                        card.setOnClickListener(v -> {
+                            Bundle bundle = new Bundle();
+                            bundle.putString("eventId", eventId);
+
+                            NavController navController = NavHostFragment.findNavController(this);
+                            navController.navigate(R.id.action_navigation_home_to_navigation_event_details, bundle);
+                        });
+
+                        container.addView(card);
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
     }
 }

@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import java.util.List;
 import java.util.ArrayList;
-import com.example.apollo.ui.profile.entrants.EntrantEvent;
+import com.example.apollo.models.EntrantEvent;
 
 public class EventsViewModel extends ViewModel {
     private final MutableLiveData<String> mText;

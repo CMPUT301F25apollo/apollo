@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F8F8"
+    android:padding="16dp">
+
+    <!-- Title -->
+    <TextView
+        android:id="@+id/yourEventsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="YOUR EVENTS"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:translationY="10dp" />
+
+    <!-- Add new event button -->
+    <Button
+        android:id="@+id/addNewEventButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:background="@drawable/rounded_button"
+        android:backgroundTint="#E0E0E0"
+        android:padding="12dp"
+        android:text="ADD NEW EVENT"
+        android:textColor="@color/white"
+        android:textStyle="bold"
+        android:translationY="10dp" />
+
+    <!-- Scrollable list of events -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:translationY="10dp"
+        android:paddingBottom="80dp"
+        >
+
+        <!-- Container where new events will be added -->
+        <LinearLayout
+            android:id="@+id/eventsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+</LinearLayout>
