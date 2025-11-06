@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -9,18 +8,31 @@
     android:padding="20dp"
     tools:context=".ui.home.HomeFragment">
 
-    <!-- App title -->
-    <TextView
-        android:id="@+id/textHome"
-        android:layout_width="wrap_content"
+    <!-- Header row with title and filter icon -->
+    <RelativeLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="apollo"
-        android:textSize="26sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:layout_marginBottom="10dp" />
+        android:layout_marginBottom="10dp">
 
-    <!-- Section header -->
+        <TextView
+            android:id="@+id/textHome"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="apollo"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black" />
+
+        <ImageButton
+            android:id="@+id/buttonFilter"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentEnd="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="Filter"
+            android:src="@drawable/ic_filter_list" />
+    </RelativeLayout>
+
     <TextView
         android:text="EVENTS"
         android:textStyle="bold"
@@ -30,7 +42,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
-    <!-- Scrollable content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -39,7 +50,6 @@
         android:translationY="10dp"
         android:paddingBottom="80dp">
 
-        <!-- Container where new events will be added -->
         <LinearLayout
             android:id="@+id/eventsContainer"
             android:layout_width="match_parent"

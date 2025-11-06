@@ -81,6 +81,15 @@
                     android:textColor="@color/black"
                     android:textSize="20sp"
                     android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/textWaitlistCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Waitlist count: loading..."
+                    android:textSize="14sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:layout_marginTop="8dp"
+                    android:layout_gravity="center_horizontal" />
 
                 <!-- Event summary details -->
                 <TextView
@@ -95,6 +104,7 @@
                     android:textStyle="bold" />
 
             </LinearLayout>
+
 
             <Button
                 android:id="@+id/buttonJoinWaitlist"

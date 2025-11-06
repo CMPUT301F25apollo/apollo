@@ -69,7 +69,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:contentDescription="@string/filter_button"
-            app:srcCompat="@drawable/icons8_filter_24"
+            app:srcCompat="@drawable/ic_filter_list"
             />
 
         <TextView
