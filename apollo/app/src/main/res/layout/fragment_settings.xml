@@ -143,5 +143,17 @@
             android:layout_height="48dp"
             android:layout_marginTop="20dp"
             android:text="Save changes" />
+
+
+        <!-- delete account -->
+        <Button
+            android:id="@+id/Deleteaccountbtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="20dp"
+            android:text="Delete Account"
+            android:backgroundTint="@color/apollo_red"
+            android:textColor="@android:color/white" />
+
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
