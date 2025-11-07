@@ -107,6 +107,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
+        // CHANGED: wire lottery action
+        buttonSendLottery.setOnClickListener(v -> {
+            if (eventId == null) return;
+            askForWinnerCountAndRunLottery(eventId, eventName);
+        });
         // Logs a message when the "Send Lottery" button is pressed.
         buttonSendLottery.setOnClickListener(v ->
                 Log.d("Organizer", "Send Lottery clicked for event " + eventId));

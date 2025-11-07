@@ -45,6 +45,9 @@ public class EventDetailsFragment extends Fragment {
     private enum State { NONE, WAITING, INVITED, REGISTERED }
     private State state = State.NONE;
 
+    // keep latest snapshots to avoid races
+    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -89,8 +92,8 @@ public class EventDetailsFragment extends Fragment {
         } else {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
-            observeUserEventState();     // <-- NEW: live state
-            wireJoinLeaveAction();       // keep your join/leave behavior
+            observeUserEventState();   // live state from invites/registrations/waitlist
+            wireJoinLeaveAction();     // join/leave with extra server-side checks
         }
 
         return view;
@@ -98,8 +101,8 @@ public class EventDetailsFragment extends Fragment {
 
     private void loadEventDetails(String eventId) {
         if (eventId == null) return;
-        DocumentReference eventRef = db.collection("events").document(eventId);
-        eventRef.get()
+        db.collection("events").document(eventId)
+                .get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
                         String title = document.getString("title");
@@ -300,7 +303,6 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private void toast(String m) {
-        if (getContext() != null)
-            Toast.makeText(getContext(), m, Toast.LENGTH_SHORT).show();
+        if (getContext() != null) Toast.makeText(getContext(), m, Toast.LENGTH_SHORT).show();
     }
 }
