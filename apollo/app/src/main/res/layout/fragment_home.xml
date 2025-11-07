@@ -27,7 +27,7 @@
         <!-- Filter Button (top-right corner) -->
         <ImageButton
             android:id="@+id/buttonFilter"
-            android:layout_width="40d0p"
+            android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_alignParentEnd="true"
             android:background="@android:color/transparent"
