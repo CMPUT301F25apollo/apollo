@@ -1,3 +1,23 @@
+/**
+ * HomeFragment.java
+ *
+ * This fragment is the main screen that shows all available events.
+ * It loads events from Firestore, lets users open the details for each event,
+ * and includes filters to toggle between open and closed events and also dims past events
+ * that are now closed
+ *
+ * The screen also includes an info button that explains how the lottery
+ * selection process works (shown in a popup dialog)
+ *
+ * Design pattern: Basic MVC, Firestore acts as the data (Model), this fragment
+ * handles the view and user logic (Controller/View), it also uses the Fragment
+ * Result API to pass data between HomeFragment and FilterFragment.
+ *
+ * Current Issues
+ * - No loading indicator when fetching events from Firestore
+ * - Event sorting and pagination not yet implemented
+ * - Error handling for missing or invalid event data could be improved
+ */
 package com.example.apollo.ui.home;
 
 import android.os.Bundle;
@@ -10,7 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 
-import com.bumptech.glide.Glide;
+//import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -40,6 +60,16 @@ public class HomeFragment extends Fragment {
     private LinearLayout eventsContainer;
     private final List<Event> allEvents = new ArrayList<>();
 
+    /**
+     * Sets up the Home screen layout, connects to Firestore,
+     * and handles button clicks for info and filters.
+     * Also listens for filter results and loads events.
+     *
+     * @param inflater  The LayoutInflater used to inflate the fragment's view.
+     * @param container The parent ViewGroup that the fragment's UI will be attached to.
+     * @param savedInstanceState Saved state data from a previous instance, if any.
+     * @return The root View object representing the fragment's layout.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
@@ -50,6 +80,7 @@ public class HomeFragment extends Fragment {
         // Bind views
         ImageButton infoButton = view.findViewById(R.id.buttonInfo);
 
+        //how it works desc.
         infoButton.setOnClickListener(v -> {
             new MaterialAlertDialogBuilder(requireContext())
                     .setTitle("How it works?")
@@ -78,11 +109,18 @@ public class HomeFragment extends Fragment {
                     .navigate(R.id.action_navigation_home_to_navigation_filter, args);
         });
 
-        //listen for filter results (only once)
+        //listen for filter results once
         getParentFragmentManager().setFragmentResultListener("filters", this, (reqKey, bundle) -> {
             showOpen = bundle.getBoolean("open");
             showClosed = bundle.getBoolean("closed");
             filterEvents(showOpen, showClosed);
+        });
+
+        ImageButton qrButton = view.findViewById(R.id.buttonQrScanner);
+
+        qrButton.setOnClickListener(v -> {
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.action_navigation_home_to_qrScannerFragment);
         });
 
         // Load events from Firestore
@@ -117,7 +155,7 @@ public class HomeFragment extends Fragment {
                             Date closeDate = closeDateStr != null ? sdf.parse(closeDateStr) : null;
 
                             if (closeDate != null && closeDate.before(today)) {
-                                // past event → closed
+                                // past event = closed
                                 isClosed = true;
                                 isOpen = false;
                             } else if (openDate != null && openDate.after(today)) {
@@ -140,7 +178,14 @@ public class HomeFragment extends Fragment {
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
                         titleView.setText(title != null ? title : "Untitled Event");
+
                         ImageView posterView = card.findViewById(R.id.eventPosterImage);
+
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .into(posterView);
+                        }
 
                         // dim past (closed) events
                         card.setAlpha(isClosed ? 0.4f : 1.0f);

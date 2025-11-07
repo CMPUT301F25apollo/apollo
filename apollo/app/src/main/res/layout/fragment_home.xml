@@ -1,5 +1,6 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:layout_width="match_parent"
@@ -26,7 +27,7 @@
         <!-- Filter Button (top-right corner) -->
         <ImageButton
             android:id="@+id/buttonFilter"
-            android:layout_width="40dp"
+            android:layout_width="40d0p"
             android:layout_height="40dp"
             android:layout_alignParentEnd="true"
             android:background="@android:color/transparent"
@@ -44,6 +45,19 @@
             android:background="@android:color/transparent"
             android:contentDescription="@string/cd_lottery_info"
             android:src="@drawable/ic_lightbulb_24" />
+
+        <ImageButton
+            android:id="@+id/buttonQrScanner"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="end"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="115dp"
+            android:layout_marginTop="6dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="QR Scanner"
+            android:src="@drawable/qrcode"
+            app:tint="@color/black" />
     </RelativeLayout>
 
     <!-- Events section title -->

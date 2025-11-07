@@ -9,17 +9,14 @@
     android:layout_height="wrap_content"
     android:src="@drawable/ic_arrow_back"
     android:background="@android:color/transparent"
-    android:contentDescription="Back"
+    android:contentDescription="@string/back_button_desc"
     android:layout_alignParentStart="true"
     android:layout_alignParentTop="true"
     android:layout_marginStart="8dp"
     android:layout_marginTop="28dp"
-    android:elevation="4dp"
-    xmlns:android="http://schemas.android.com/apk/res/android" />
+    android:elevation="4dp" />
 
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<ScrollView
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white"
@@ -58,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:lineSpacingExtra="4dp"
-                android:text="Event Title Here"
+                android:text="@string/event_title_placeholder"
                 android:textColor="@android:color/black"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -70,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 android:lineSpacingExtra="3dp"
-                android:text="Event description goes here..."
+                android:text="@string/event_description_placeholder"
                 android:textColor="#444444"
                 android:textSize="14sp" />
 
@@ -78,7 +75,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:text="Sign UP "
+                android:text="@string/sign_up_label"
                 android:textColor="@color/black"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -94,6 +91,8 @@
                 android:textColor="@color/black"
                 android:textSize="14sp"
                 android:textStyle="bold" />
+
+
 
         </LinearLayout>
 
@@ -126,7 +125,7 @@
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
                 android:gravity="center"
-                android:text="Edit Event"
+                android:text="@string/edit_event_button"
                 android:textColor="@color/white"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -140,7 +139,7 @@
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
                 android:gravity="center"
-                android:text="Send Lottery"
+                android:text="@string/send_lottery_button"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -152,7 +151,7 @@
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
                 android:gravity="center"
-                android:text="View Entrants"
+                android:text="@string/view_entrants_button"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
                 android:textStyle="bold" />
