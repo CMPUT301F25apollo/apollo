@@ -307,6 +307,18 @@ public class AddEventFragment extends Fragment {
             Toast.makeText(getContext(), "Enter event date, time, and AM/PM", Toast.LENGTH_SHORT).show();
             return false;
         }
+        try {
+            String timeStr = eventTime.getText().toString().trim();
+            int hour = Integer.parseInt(timeStr.split(":")[0]);
+
+            if (hour < 1 || hour > 12) {
+                Toast.makeText(getContext(), "Time must be between 1 and 12 for AM/PM format", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
 
         try {
             int capacity = Integer.parseInt(eventCapacity.getText().toString().trim());
@@ -314,7 +326,8 @@ public class AddEventFragment extends Fragment {
             double price = Double.parseDouble(eventPrice.getText().toString().trim());
             if (price < 0) throw new NumberFormatException();
             int waitlist = Integer.parseInt(waitlistCapacity.getText().toString().trim());
-            if (waitlist < 0) throw new NumberFormatException();
+            if (waitlist < 0) throw new NumberFormatException("Waitlist cannot be negative");
+            if (waitlist < capacity) throw new NumberFormatException("Waitlist must be >= capacity");
         } catch (NumberFormatException e) {
             Toast.makeText(getContext(), "Invalid numeric value", Toast.LENGTH_SHORT).show();
             return false;
@@ -343,6 +356,11 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Event date/time cannot be in the past", Toast.LENGTH_SHORT).show();
                 return false;
             }
+            if (regOpen.before(now) || regClose.before(now)) {
+                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
             if (regOpen.after(regClose)) {
                 Toast.makeText(getContext(), "Registration open must be before close", Toast.LENGTH_SHORT).show();
                 return false;

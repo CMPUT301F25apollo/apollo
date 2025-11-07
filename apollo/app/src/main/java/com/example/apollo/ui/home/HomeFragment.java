@@ -190,9 +190,13 @@ public class HomeFragment extends Fragment {
                         // dim past (closed) events
                         card.setAlpha(isClosed ? 0.4f : 1.0f);
 
+                        final String finalEventId = eventId;
+                        final boolean finalIsClosed = isClosed;
+
                         card.setOnClickListener(v -> {
                             Bundle bundle = new Bundle();
-                            bundle.putString("eventId", eventId);
+                            bundle.putString("eventId", finalEventId);
+                            bundle.putBoolean("isClosed", finalIsClosed); // 👈 pass it here
                             NavController navController = NavHostFragment.findNavController(this);
                             navController.navigate(R.id.action_navigation_home_to_navigation_event_details, bundle);
                         });
