@@ -8,14 +8,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.NavController;
-import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
-import com.example.apollo.R;
 import com.example.apollo.databinding.FragmentNotificationsBinding;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -31,7 +27,6 @@ public class NotificationsFragment extends Fragment {
     private FirebaseAuth auth;
     private ListenerRegistration reg;
     private NotificationsAdapter adapter;
-    private final List<NotificationsViewModel> items = new ArrayList<>();
 
     @Nullable
     @Override
@@ -42,36 +37,17 @@ public class NotificationsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
 
-        // Recycler setup
+        // Recycler
         binding.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        // Non-clickable for today: pass null
         adapter = new NotificationsAdapter(null);
         binding.recycler.setAdapter(adapter);
 
-// Empty state visible until data arrives
+        // Show empty until data arrives
         binding.empty.setVisibility(View.VISIBLE);
 
-// --- Firestore: listen for notifications for the current user ---
-        if (auth.getCurrentUser() != null) {
-            db.collection("users")
-                    .document(auth.getCurrentUser().getUid())
-                    .collection("notifications")
-                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                    .addSnapshotListener((snap, e) -> {
-                        if (e != null || snap == null) return;
-
-                        java.util.List<NotificationsViewModel> items = new java.util.ArrayList<>();
-                        for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                            items.add(NotificationsViewModel.from(d));
-                        }
-
-                        adapter.setData(items);
-
-                        // toggle empty state visibility
-                        binding.empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-                    });
-        }
-
-
+        // IMPORTANT: no Firestore listener here
         return binding.getRoot();
     }
 
@@ -81,33 +57,21 @@ public class NotificationsFragment extends Fragment {
         if (auth.getCurrentUser() == null) return;
 
         String uid = auth.getCurrentUser().getUid();
-        reg = db.collection("users").document(uid)
+
+        // Single listener that rebuilds the list each time (no diff math)
+        reg = db.collection("users")
+                .document(uid)
                 .collection("notifications")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, e) -> {
                     if (e != null || snap == null) return;
 
-                    // live diff handling
-                    for (DocumentChange dc : snap.getDocumentChanges()) {
-                        DocumentSnapshot d = dc.getDocument();
-                        NotificationsViewModel n = NotificationsViewModel.from(d);
-                        switch (dc.getType()) {
-                            case ADDED:
-                                items.add(dc.getNewIndex(), n);
-                                adapter.notifyItemInserted(dc.getNewIndex());
-                                break;
-                            case MODIFIED:
-                                items.set(dc.getNewIndex(), n);
-                                adapter.notifyItemChanged(dc.getNewIndex());
-                                break;
-                            case REMOVED:
-                                items.remove(dc.getOldIndex());
-                                adapter.notifyItemRemoved(dc.getOldIndex());
-                                break;
-                        }
+                    List<NotificationsViewModel> fresh = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        fresh.add(NotificationsViewModel.from(d));
                     }
-
-                    binding.empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+                    adapter.setData(fresh);
+                    binding.empty.setVisibility(fresh.isEmpty() ? View.VISIBLE : View.GONE);
                 });
     }
 
@@ -121,24 +85,5 @@ public class NotificationsFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
-    }
-
-    private void onNotificationClick(NotificationsViewModel n, int position) {
-        if (auth.getCurrentUser() == null) return;
-        String uid = auth.getCurrentUser().getUid();
-
-        // mark read
-        db.collection("users").document(uid)
-                .collection("notifications").document(n.id)
-                .update("read", true);
-
-        // route
-        if ("lottery_win".equals(n.type) && n.eventId != null && !n.eventId.isEmpty()) {
-            Bundle b = new Bundle();
-            b.putString("eventId", n.eventId);
-            NavController nav = NavHostFragment.findNavController(this);
-            nav.navigate(R.id.navigation_event_details, b);
-        }
-        // you can add other types here later
     }
 }
