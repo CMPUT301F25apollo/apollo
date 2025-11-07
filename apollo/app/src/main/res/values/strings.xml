@@ -24,5 +24,11 @@
     <string name="event_image_preview">Event image preview</string>
     <string name="cd_lottery_info">How the lottery works</string>
     <string name="event_poster">Event Poster</string>
-
+    <string name="back_button_desc">Back</string>
+    <string name="event_title_placeholder">Event Title Here</string>
+    <string name="event_description_placeholder">Event description goes here...</string>
+    <string name="sign_up_label">Sign UP</string>
+    <string name="edit_event_button">Edit Event</string>
+    <string name="send_lottery_button">Send Lottery</string>
+    <string name="view_entrants_button">View Entrants</string>
 </resources>
