@@ -1,5 +1,3 @@
-
-
 package com.example.apollo.ui.home;
 
 import android.os.Bundle;

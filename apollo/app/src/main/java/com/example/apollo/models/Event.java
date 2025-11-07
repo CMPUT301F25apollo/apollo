@@ -1,5 +1,18 @@
 package com.example.apollo.models;
 
+/**
+ * EntrantEvent.java
+ *
+ * Represents an event that an entrant (user) can register for.
+ * Each event stores its ID, name, date, and a waiting list of user IDs.
+ *
+ * This model is designed for use with Firebase Firestore or similar databases,
+ * where objects are serialized and deserialized automatically.
+ * It includes an empty constructor for compatibility with Firebase.
+ *
+ * The class also provides basic waiting list management methods for
+ * adding, removing, and checking user participation.
+ */
 public class Event {
     private String title;
     private String description;
@@ -10,6 +23,7 @@ public class Event {
     private String eventPosterUrl;
 
     // Empty constructor... required for Firebase or data binding
+
     public Event() {}
 
     public Event(String title, String description, String location, String time, String registrationStart, String registrationEnd, String eventPosterUrl) {

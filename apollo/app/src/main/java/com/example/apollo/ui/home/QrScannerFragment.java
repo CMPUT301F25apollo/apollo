@@ -33,6 +33,29 @@ import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
 
 import java.util.concurrent.ExecutionException;
+/**
+ * QrScannerFragment.java
+ *
+ * This fragment provides a live QR code scanner using CameraX and Google ML Kit.
+ * When a QR code is detected, the app extracts its value (usually an event ID)
+ * and navigates to the event details screen if the event exists in Firestore.
+ *
+ * Technologies used:
+ * - CameraX: Handles camera input and preview lifecycle.
+ * - ML Kit Barcode Scanning: Processes camera frames to detect QR codes.
+ * - Firestore: Verifies that scanned event IDs exist in the database.
+ * - AndroidX Navigation: Manages transitions between the Home and Event Details screens.
+ *
+ * Design Notes:
+ * This fragment follows an MVC-like structure where Firestore acts as the Model (data),
+ * the camera preview is the View, and this fragment acts as the Controller.
+ * The camera lifecycle is automatically managed using CameraX.
+ *
+ * Known Issues:
+ * - No loading indicator or visual feedback during scanning
+ * - Processes only one QR code per frame (skips duplicates)
+ * - No error dialog for invalid or unrecognized codes
+ */
 
 public class QrScannerFragment extends Fragment {
 
@@ -68,7 +91,10 @@ public class QrScannerFragment extends Fragment {
 
         return view;
     }
-
+    /**
+     * Starts the camera asynchronously using CameraX. Once available,
+     * binds the preview and image analysis use cases.
+     */
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext());
 
@@ -82,6 +108,11 @@ public class QrScannerFragment extends Fragment {
         }, ContextCompat.getMainExecutor(requireContext()));
     }
 
+    /**
+     * Binds the camera preview and barcode analysis pipeline to the fragment's lifecycle.
+     *
+     * @param cameraProvider The CameraX provider managing camera lifecycles.
+     */
     private void bindCamera(ProcessCameraProvider cameraProvider) {
         cameraProvider.unbindAll();
 
@@ -129,6 +160,12 @@ public class QrScannerFragment extends Fragment {
 
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
     }
+    /**
+     * Handles a successfully scanned QR code.
+     * If the code matches the expected format it checks Firestore
+     * for a matching event and navigates to its details page.
+     * @param rawValue The decoded string value from the QR code.
+     */
 
     private void handleScannedCode(String rawValue) {
         Log.d("QR", "Scanned: " + rawValue);

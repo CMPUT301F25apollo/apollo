@@ -67,7 +67,18 @@ dependencies {
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     // Testing
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+// --- Unit testing ---
+    testImplementation("junit:junit:4.13.2")
+
+// --- Android Instrumentation / UI testing ---
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+
+// --- Optional helper for fragment testing ---
+    debugImplementation("androidx.fragment:fragment-testing:1.6.2")
+
+// Optional helper if you use ViewMatchers or fragments
+    debugImplementation("androidx.fragment:fragment-testing:1.6.2")
 }

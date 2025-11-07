@@ -52,23 +52,29 @@ import java.util.Locale;
 
 public class HomeFragment extends Fragment {
 
-    // rmbering last filter selections
+    //keeps track of whether open events should be shown in the list
     private boolean showOpen = true;
+
+    // keeps track of whether closed events should be shown in the list
     private boolean showClosed = true;
 
+    //Firestore database instance for fetching event data
     private FirebaseFirestore db;
+
+    //the layout container that holds dynamically added event cards. */
     private LinearLayout eventsContainer;
+
+    //List of all events currently fetched from Firestore. */
     private final List<Event> allEvents = new ArrayList<>();
 
     /**
-     * Sets up the Home screen layout, connects to Firestore,
-     * and handles button clicks for info and filters.
-     * Also listens for filter results and loads events.
+     * Called to create the fragment's view hierarchy.
+     * Initializes Firestore, sets up button listeners, and loads event data.
      *
-     * @param inflater  The LayoutInflater used to inflate the fragment's view.
-     * @param container The parent ViewGroup that the fragment's UI will be attached to.
-     * @param savedInstanceState Saved state data from a previous instance, if any.
-     * @return The root View object representing the fragment's layout.
+     * @param inflater  The LayoutInflater used to inflate the layout.
+     * @param container The parent ViewGroup to which the fragment's view will be attached.
+     * @param savedInstanceState If non-null, this fragment is being re-constructed from a previous saved state.
+     * @return The root View for this fragment.
      */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -129,6 +135,13 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
+
+
+    /**
+     * Fetches event documents from Firestore and dynamically populates
+     * the event list on the Home screen
+     * Each event card is clickable leading to its detailed view.
+     */
     private void loadEventsFromFirestore() {
         db.collection("events")
                 .get()
@@ -207,6 +220,13 @@ public class HomeFragment extends Fragment {
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
 
+    /**
+     * Filters events based on whether open and/or closed events should be shown.
+     * If both filters are off, all events are displayed.
+     *
+     * @param showOpen   True to show open events.
+     * @param showClosed True to show closed events.
+     */
     private void filterEvents(boolean showOpen, boolean showClosed) {
         // if both are false, show all
         boolean showAll = !showOpen && !showClosed;
@@ -225,6 +245,11 @@ public class HomeFragment extends Fragment {
         }
     }
 
+
+    /**
+     * Represents an event object on the Home screen,
+     * storing its open/closed state and view reference.
+     */
     private static class Event {
         private final boolean isOpen;
         private final boolean isClosed;
