@@ -20,6 +20,21 @@ import com.google.firebase.firestore.Query;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * NotificationsFragment.java
+ *
+ * Purpose:
+ * Displays a list of notifications for the current user.
+ * Retrieves notification data from Firestore and shows it using a RecyclerView.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, connecting the Firestore data (model)
+ * with the RecyclerView adapter (view).
+ *
+ * Notes:
+ * - Currently, notifications are non-clickable.
+ * - Can be extended later to support marking notifications as read or opening details.
+ */
 public class NotificationsFragment extends Fragment {
 
     private FragmentNotificationsBinding binding;
@@ -28,6 +43,15 @@ public class NotificationsFragment extends Fragment {
     private ListenerRegistration reg;
     private NotificationsAdapter adapter;
 
+    /**
+     * Called when the fragment’s view is being created.
+     * Sets up the RecyclerView and initializes Firebase instances.
+     *
+     * @param inflater Used to inflate the fragment layout.
+     * @param container The parent view that the fragment attaches to.
+     * @param savedInstanceState The saved state of the fragment, if available.
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -37,20 +61,24 @@ public class NotificationsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
 
-        // Recycler
+        // Set up RecyclerView layout
         binding.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        // Non-clickable for today: pass null
+        // Adapter without click functionality for now
         adapter = new NotificationsAdapter(null);
         binding.recycler.setAdapter(adapter);
 
-        // Show empty until data arrives
+        // Show "empty" message until data is loaded
         binding.empty.setVisibility(View.VISIBLE);
 
-        // IMPORTANT: no Firestore listener here
+        // No Firestore listener is attached here (handled in onStart)
         return binding.getRoot();
     }
 
+    /**
+     * Called when the fragment becomes visible.
+     * Starts listening for real-time updates from Firestore and updates the RecyclerView.
+     */
     @Override
     public void onStart() {
         super.onStart();
@@ -58,7 +86,7 @@ public class NotificationsFragment extends Fragment {
 
         String uid = auth.getCurrentUser().getUid();
 
-        // Single listener that rebuilds the list each time (no diff math)
+        // Listen for notifications from Firestore, ordered by newest first
         reg = db.collection("users")
                 .document(uid)
                 .collection("notifications")
@@ -70,17 +98,29 @@ public class NotificationsFragment extends Fragment {
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         fresh.add(NotificationsViewModel.from(d));
                     }
+
                     adapter.setData(fresh);
                     binding.empty.setVisibility(fresh.isEmpty() ? View.VISIBLE : View.GONE);
                 });
     }
 
+    /**
+     * Called when the fragment is no longer visible.
+     * Removes the Firestore listener to avoid memory leaks.
+     */
     @Override
     public void onStop() {
-        if (reg != null) { reg.remove(); reg = null; }
+        if (reg != null) {
+            reg.remove();
+            reg = null;
+        }
         super.onStop();
     }
 
+    /**
+     * Called when the fragment’s view is destroyed.
+     * Clears the binding reference to avoid memory leaks.
+     */
     @Override
     public void onDestroyView() {
         super.onDestroyView();

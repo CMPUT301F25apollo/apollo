@@ -23,16 +23,40 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * EventWaitlistFragment.java
+ *
+ * Purpose:
+ * Displays a list of entrants currently on the waitlist for a specific event.
+ * Fetches data from Firestore and shows entrant names or IDs in a simple ListView.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, retrieving waitlist data from Firestore (model)
+ * and displaying it in the UI (view).
+ *
+ * Notes:
+ * - Shows an empty message if there are no entrants.
+ * - Automatically refreshes the list when the fragment becomes visible.
+ */
 public class EventWaitlistFragment extends Fragment {
 
     private ListView listView;
     private TextView emptyTextView;
     private ArrayAdapter<String> adapter;
-    private List<String> entrantsList = new ArrayList<>();
+    private final List<String> entrantsList = new ArrayList<>();
 
     private FirebaseFirestore db;
     private String eventId;
 
+    /**
+     * Called when the fragment’s view is created.
+     * Initializes Firestore, sets up the ListView adapter, and loads waitlist data.
+     *
+     * @param inflater Used to inflate the fragment layout.
+     * @param container The parent view that the fragment attaches to.
+     * @param savedInstanceState The saved instance state, if available.
+     * @return The root view for the fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -44,14 +68,14 @@ public class EventWaitlistFragment extends Fragment {
         listView = view.findViewById(R.id.listView);
         emptyTextView = view.findViewById(R.id.textView);
 
-        // Setup adapter
+        // Set up the adapter for the ListView
         adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, entrantsList);
         listView.setAdapter(adapter);
         listView.setEmptyView(emptyTextView);
 
         db = FirebaseFirestore.getInstance();
 
-        // Get eventId from arguments
+        // Get eventId from fragment arguments
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadWaitlistEntrants();
@@ -60,10 +84,14 @@ public class EventWaitlistFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Loads and displays the entrants currently in the waitlist for this event.
+     * Queries Firestore for entrants and fetches their names from the users collection.
+     */
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
-        emptyTextView.setText(""); // clear previous text
+        emptyTextView.setText("");
         entrantsList.clear();
         adapter.notifyDataSetChanged();
 
@@ -83,6 +111,8 @@ public class EventWaitlistFragment extends Fragment {
 
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         String entrantId = doc.getId();
+
+                        // Fetch entrant details from users collection
                         db.collection("users")
                                 .document(entrantId)
                                 .get()
@@ -90,7 +120,6 @@ public class EventWaitlistFragment extends Fragment {
                                     String name = userDoc.getString("name");
                                     uniqueEntrants.add(name != null ? name : entrantId);
 
-                                    // Update list and adapter only once
                                     entrantsList.clear();
                                     entrantsList.addAll(uniqueEntrants);
                                     adapter.notifyDataSetChanged();
@@ -103,20 +132,26 @@ public class EventWaitlistFragment extends Fragment {
                                 });
                     }
                 })
-                .addOnFailureListener(e -> {
-                    emptyTextView.setText("Failed to load waitlist");
-                });
+                .addOnFailureListener(e -> emptyTextView.setText("Failed to load waitlist"));
     }
 
-
-
+    /**
+     * Enables the back arrow in the toolbar for navigation.
+     *
+     * @param savedInstanceState The saved state of the fragment, if available.
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Allow back arrow handling
         setHasOptionsMenu(true);
     }
 
+    /**
+     * Handles toolbar item selections such as the back arrow.
+     *
+     * @param item The selected menu item.
+     * @return true if handled, otherwise passes to the superclass.
+     */
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
@@ -125,12 +160,13 @@ public class EventWaitlistFragment extends Fragment {
         }
         return super.onOptionsItemSelected(item);
     }
+
+    /**
+     * Reloads the waitlist whenever the fragment becomes visible again.
+     */
     @Override
     public void onResume() {
         super.onResume();
-        loadWaitlistEntrants();  // reload the list when fragment becomes visible
+        loadWaitlistEntrants();
     }
-
 }
-
-
