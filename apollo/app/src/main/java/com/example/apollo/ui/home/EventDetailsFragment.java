@@ -104,75 +104,89 @@ public class EventDetailsFragment extends Fragment {
         db.collection("events").document(eventId)
                 .get()
                 .addOnSuccessListener(document -> {
-                    if (!document.exists()) { Log.w("Firestore","No such event "+eventId); return; }
+                    if (document.exists()) {
+                        String title = document.getString("title");
+                        String description = document.getString("description");
+                        String location = document.getString("location");
+                        String date = document.getString("date");
+                        String time = document.getString("time");
+                        String registrationOpen = document.getString("registrationOpen");
+                        String registrationClose = document.getString("registrationClose");
+                        Long eventCapacity = document.getLong("eventCapacity");
+                        Long waitlistCapacity = document.getLong("waitlistCapacity");
+                        Double price = document.getDouble("price");
 
-                    String title = document.getString("title");
-                    String description = document.getString("description");
-                    String location = document.getString("location");
-                    String date = document.getString("date");
-                    String time = document.getString("time");
-                    String registrationOpen = document.getString("registrationOpen");
-                    String registrationClose = document.getString("registrationClose");
-                    Long eventCapacity = document.getLong("eventCapacity");
-                    Long waitlistCapacity = document.getLong("waitlistCapacity");
-                    Double price = document.getDouble("price");
+                        String registrationPeriod = (registrationOpen != null && registrationClose != null)
+                                ? registrationOpen + " - " + registrationClose
+                                : "Not specified";
+                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
+                        String dateText = (date != null) ? date : "N/A";
+                        String timeText = (time != null) ? time : "N/A";
+                        String priceText = (price != null) ? "$" + price : "Free";
+                        String locationText = (location != null) ? location : "TBD";
 
-                    String registrationPeriod = (registrationOpen != null && registrationClose != null)
-                            ? registrationOpen + " - " + registrationClose : "Not specified";
-                    String capacityText  = (eventCapacity != null)   ? "Capacity: " + eventCapacity : "Capacity: N/A";
-                    String waitlistText  = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
-                    String dateText  = (date != null) ? date : "N/A";
-                    String timeText  = (time != null) ? time : "N/A";
-                    String priceText = (price != null) ? "$" + price : "Free";
-                    String locationText = (location != null) ? location : "TBD";
-
-                    textEventTitle.setText(title != null ? title : "Untitled Event");
-                    textEventDescription.setText(description != null ? description : "No description available");
-                    textEventSummary.setText(
-                            "Location: " + locationText +
-                                    "\nDate: " + dateText +
-                                    "\nTime: " + timeText +
-                                    "\nPrice: " + priceText +
-                                    "\nRegistration: " + registrationPeriod +
-                                    "\n" + capacityText +
-                                    "\n" + waitlistText
-                    );
+                        textEventTitle.setText(title != null ? title : "Untitled Event");
+                        textEventDescription.setText(description != null ? description : "No description available");
+                        textEventSummary.setText(
+                                "Location: " + locationText +
+                                        "\nDate: " + dateText +
+                                        "\nTime: " + timeText +
+                                        "\nPrice: " + priceText +
+                                        "\nRegistration: " + registrationPeriod +
+                                        "\n" + capacityText +
+                                        "\n" + waitlistText
+                        );
+                    } else {
+                        Log.w("Firestore", "No such event found with ID: " + eventId);
+                    }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
     }
 
-    // ---------- live state listeners ----------
+    // ========= live state =========
     private void observeUserEventState() {
         if (eventId == null || uid == null) return;
 
-        // registrations => REGISTERED (highest)
+        // 1) registrations/{uid} => REGISTERED wins highest priority
         db.collection("events").document(eventId)
                 .collection("registrations").document(uid)
                 .addSnapshotListener((doc, e) -> {
-                    hasRegistered = (doc != null && doc.exists());
-                    recomputeState();
+                    boolean registered = (doc != null && doc.exists());
+                    recalcState(registered, /*invited*/null, /*waiting*/null);
                 });
 
-        // invites => INVITED
+        // 2) invites/{uid} => INVITED second
         db.collection("events").document(eventId)
                 .collection("invites").document(uid)
                 .addSnapshotListener((doc, e) -> {
-                    hasInvited = (doc != null && doc.exists());
-                    recomputeState();
+                    boolean invited = (doc != null && doc.exists());
+                    recalcState(/*registered*/null, invited, /*waiting*/null);
                 });
 
-        // waitlist => WAITING
+        // 3) waitlist/{uid} => WAITING otherwise
         waitlistRef().addSnapshotListener((doc, e) -> {
-            hasWaiting = (doc != null && doc.exists());
-            recomputeState();
+            boolean waiting = (doc != null && doc.exists());
+            recalcState(/*registered*/null, /*invited*/null, waiting);
         });
     }
 
-    private void recomputeState() {
+    // keep the latest view of each signal and then choose the priority
+    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
+
+    private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
+        if (registered != null) hasRegistered = registered;
+        if (invited != null)   hasInvited = invited;
+        if (waiting != null)   hasWaiting = waiting;
+
         State newState = State.NONE;
-        if (Boolean.TRUE.equals(hasRegistered))          newState = State.REGISTERED;
-        else if (Boolean.TRUE.equals(hasInvited))        newState = State.INVITED;
-        else if (Boolean.TRUE.equals(hasWaiting))        newState = State.WAITING;
+        if (Boolean.TRUE.equals(hasRegistered)) {
+            newState = State.REGISTERED;
+        } else if (Boolean.TRUE.equals(hasInvited)) {
+            newState = State.INVITED;
+        } else if (Boolean.TRUE.equals(hasWaiting)) {
+            newState = State.WAITING;
+        }
 
         if (newState != state) {
             state = newState;
@@ -180,54 +194,45 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    // ---------- join/leave with double-checks ----------
+    // ========= join/leave logic (unchanged behavior for WAITING) =========
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
-            if (state == State.INVITED)   { toast("You’ve already been invited. Check Notifications."); return; }
-            if (state == State.REGISTERED){ toast("You’re already registered for this event."); return; }
-
-            if (state == State.WAITING) {
-                setLoading(true);
-                waitlistRef().delete()
-                        .addOnSuccessListener(ok -> { toast("Left waitlist"); setLoading(false); })
-                        .addOnFailureListener(e -> { toast("Failed to leave: " + e.getMessage()); setLoading(false); });
+            if (state == State.INVITED) {
+                toast("You’ve already been invited. Check Notifications to proceed.");
                 return;
             }
-
-            // state == NONE → try to join, but **double-check** nothing changed on server
-            setLoading(true);
-            DocumentReference regRef   = db.collection("events").document(eventId).collection("registrations").document(uid);
-            DocumentReference invRef   = db.collection("events").document(eventId).collection("invites").document(uid);
-            DocumentReference wlRef    = waitlistRef();
-
-            regRef.get().continueWithTask(t1 -> {
-                DocumentSnapshot r = t1.getResult();
-                if (r != null && r.exists()) throw new IllegalStateException("Already registered");
-                return invRef.get();
-            }).continueWithTask(t2 -> {
-                DocumentSnapshot i = t2.getResult();
-                if (i != null && i.exists()) throw new IllegalStateException("Already invited");
-                return wlRef.get();
-            }).continueWithTask(t3 -> {
-                DocumentSnapshot w = t3.getResult();
-                if (w != null && w.exists()) throw new IllegalStateException("You’ve already joined");
+            if (state == State.REGISTERED) {
+                toast("You’re already registered for this event.");
+                return;
+            }
+            if (state == State.WAITING) {
+                // leave
+                setLoading(true);
+                waitlistRef().delete()
+                        .addOnSuccessListener(ok -> {
+                            toast("Left waitlist");
+                            setLoading(false);
+                        })
+                        .addOnFailureListener(e -> {
+                            toast("Failed to leave: " + e.getMessage());
+                            setLoading(false);
+                        });
+            } else {
+                // join as waiting
+                setLoading(true);
                 HashMap<String, Object> data = new HashMap<>();
                 data.put("joinedAt", FieldValue.serverTimestamp());
                 data.put("state", "waiting");
-                return wlRef.set(data);
-            }).addOnSuccessListener(ok -> {
-                toast("Joined waitlist");
-                setLoading(false);
-            }).addOnFailureListener(e -> {
-                // map messages to friendly text
-                String msg = e.getMessage();
-                if (msg == null) msg = "Failed";
-                if (msg.contains("Already invited"))    msg = "You’ve already been invited.";
-                if (msg.contains("Already registered")) msg = "You’re already registered.";
-                if (msg.contains("already joined"))     msg = "You’ve already joined this waitlist.";
-                toast(msg);
-                setLoading(false);
-            });
+                waitlistRef().set(data)
+                        .addOnSuccessListener(ok -> {
+                            toast("Joined waitlist");
+                            setLoading(false);
+                        })
+                        .addOnFailureListener(e -> {
+                            toast("Failed to join: " + e.getMessage());
+                            setLoading(false);
+                        });
+            }
         });
     }
 
@@ -242,13 +247,16 @@ public class EventDetailsFragment extends Fragment {
                 .collection("waitlist")
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    textWaitlistCount.setText(
-                            snapshots != null ? ("Waitlist count: " + snapshots.size()) : "Waitlist count: N/A"
-                    );
+                    if (snapshots != null) {
+                        int count = snapshots.size();
+                        textWaitlistCount.setText("Waitlist count: " + count);
+                    } else {
+                        textWaitlistCount.setText("Waitlist count: N/A");
+                    }
                 });
     }
 
-    // ---------- UI helpers ----------
+    // ========= UI helpers =========
     private void renderButton() {
         switch (state) {
             case REGISTERED:

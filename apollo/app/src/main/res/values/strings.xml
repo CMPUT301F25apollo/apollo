@@ -22,5 +22,6 @@
     <string name="add_new_event">ADD NEW EVENT</string>
     <string name="event_title">Event Title</string>
     <string name="event_image_preview">Event image preview</string>
+    <string name="cd_lottery_info">How the lottery works</string>
 
 </resources>
