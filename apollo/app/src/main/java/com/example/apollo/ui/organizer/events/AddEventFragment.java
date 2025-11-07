@@ -152,14 +152,15 @@ public class AddEventFragment extends Fragment {
             eventImagePreview.setImageURI(selectedImageUri);
         }
     }
-
     private void uploadImageAndSaveEvent() {
+        if (selectedImageUri == null) return;
+
         String filename = UUID.randomUUID().toString() + ".jpg";
         StorageReference imageRef = storageRef.child("event_posters/" + filename);
 
         imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl()
-                        .addOnSuccessListener(uri -> saveEvent(uri.toString()))
+                        .addOnSuccessListener(uri -> saveEvent(uri.toString())) // pass URL to saveEvent
                         .addOnFailureListener(e ->
                                 Toast.makeText(getContext(), "Failed to get image URL", Toast.LENGTH_SHORT).show()))
                 .addOnFailureListener(e ->
@@ -167,10 +168,12 @@ public class AddEventFragment extends Fragment {
     }
 
     private void saveEvent(String imageUrl) {
+
         Map<String, Object> event = buildEventMap();
         if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
         if (eventId != null) {
+            // UPDATE existing event
             db.collection("events").document(eventId)
                     .set(event)
                     .addOnSuccessListener(aVoid -> {
@@ -180,11 +183,12 @@ public class AddEventFragment extends Fragment {
                     .addOnFailureListener(e ->
                             Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
         } else {
+            // CREATE new event
             db.collection("events")
                     .add(event)
-                    .addOnSuccessListener(uri -> {
-                        String downloadUrl = uri.toString();
-                        saveEvent(downloadUrl); // Pass URL to Firestore
+                    .addOnSuccessListener(documentReference -> {
+                        Toast.makeText(getContext(), "Event created successfully!", Toast.LENGTH_SHORT).show();
+                        getParentFragmentManager().popBackStack();
                     })
                     .addOnFailureListener(e ->
                             Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
