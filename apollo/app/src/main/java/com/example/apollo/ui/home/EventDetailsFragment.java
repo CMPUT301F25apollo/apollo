@@ -72,6 +72,11 @@ public class EventDetailsFragment extends Fragment {
     // keep latest snapshots to avoid races
     private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
 
+
+
+    /**
+     * Sets up the view, loads event details, and controls join/leave visibility.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -83,10 +88,6 @@ public class EventDetailsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        ImageView qrButton = view.findViewById(R.id.qrButton);
-        qrButton.setOnClickListener(v -> showQrCodeModal());
-
-
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
@@ -95,14 +96,22 @@ public class EventDetailsFragment extends Fragment {
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
+        boolean isClosed = false;
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
+            isClosed = getArguments().getBoolean("isClosed", false);
             loadEventDetails(eventId);
             listenToWaitlistCount(eventId);
         }
 
-        FirebaseUser currentUser = mAuth.getCurrentUser();
+        // 👇 Hide button if event is closed
+        if (isClosed) {
+            buttonJoinWaitlist.setVisibility(View.GONE);
+            loginText.setVisibility(View.GONE);
+            return view;
+        }
 
+        FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
             loginText.setVisibility(View.VISIBLE);
             buttonJoinWaitlist.setOnClickListener(v ->
@@ -116,13 +125,17 @@ public class EventDetailsFragment extends Fragment {
         } else {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
-            observeUserEventState();   // live state from invites/registrations/waitlist
-            wireJoinLeaveAction();     // join/leave with extra server-side checks
+            observeUserEventState();
+            wireJoinLeaveAction();
         }
 
         return view;
     }
 
+    /**
+     * gets event data from Firestore and updates all event info fields.
+     * @param eventId The ID of the event to load.
+     */
     private void loadEventDetails(String eventId) {
         if (eventId == null) return;
         db.collection("events").document(eventId)
@@ -150,8 +163,8 @@ public class EventDetailsFragment extends Fragment {
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-                        String capacityText = (eventCapacity != null) ? "Event Capacity: " + eventCapacity : "Event Capacity:  N/A";
-                        String waitlistText = (waitlistCapacity != null) ? "Waitlist Capacity: " + waitlistCapacity : "Waitlist Capacity: N/A";
+                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
@@ -168,41 +181,21 @@ public class EventDetailsFragment extends Fragment {
                                         "\n" + capacityText +
                                         "\n" + waitlistText
                         );
-                        if (waitlistCapacity != null) {
-                            db.collection("events").document(eventId)
-                                    .collection("waitlist")
-                                    .whereEqualTo("state", "waiting")
-                                    .get()
-                                    .addOnSuccessListener(snapshot -> {
-                                        int currentCount = snapshot.size();
-                                        if (currentCount >= waitlistCapacity) {
-                                            // Disable join button because waitlist is full
-                                            buttonJoinWaitlist.setText("WAITLIST FULL");
-                                            buttonJoinWaitlist.setEnabled(false);
-                                            buttonJoinWaitlist.setBackgroundTintList(
-                                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
-                                            buttonJoinWaitlist.setTextColor(
-                                                    ContextCompat.getColor(requireContext(), android.R.color.white));
-                                        }
-                                    })
-                                    .addOnFailureListener(e ->
-                                            Log.e("Firestore", "Failed to check waitlist capacity", e));
-                        }
-
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
-
-
     }
 
     // ========= live state =========
+    /**
+     * Sets up listeners to track the user's registration/invite/waitlist status live.
+     */
     private void observeUserEventState() {
         if (eventId == null || uid == null) return;
 
-        // 1) registrations/{uid} => REGISTERED wins highest priority
+        // registrations/{uid} .. REGISTERED wins highest priority
         db.collection("events").document(eventId)
                 .collection("registrations").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -210,7 +203,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(registered, /*invited*/null, /*waiting*/null);
                 });
 
-        // 2) invites/{uid} => INVITED second
+        // invites/{uid} .. INVITED second
         db.collection("events").document(eventId)
                 .collection("invites").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -218,7 +211,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(/*registered*/null, invited, /*waiting*/null);
                 });
 
-        // 3) waitlist/{uid} => WAITING otherwise
+        // waitlist/{uid} .. WAITING otherwise
         waitlistRef().addSnapshotListener((doc, e) -> {
             boolean waiting = (doc != null && doc.exists() &&
                     "waiting".equals(doc.getString("state")));
@@ -227,7 +220,9 @@ public class EventDetailsFragment extends Fragment {
     }
 
     // keep the latest view of each signal and then choose the priority
-
+    /**
+     * Updates UI state when Firestore listener data changes.
+     */
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
         if (registered != null) hasRegistered = registered;
         if (invited != null)   hasInvited = invited;
@@ -247,6 +242,10 @@ public class EventDetailsFragment extends Fragment {
             renderButton();
         }
     }
+
+    /**
+     * Handles join/leave button logic for the waitlist.
+     */
 
     // ========= join/leave logic (unchanged behavior for WAITING) =========
     private void wireJoinLeaveAction() {
