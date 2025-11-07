@@ -197,7 +197,8 @@ public class EventDetailsFragment extends Fragment {
 
         // 3) waitlist/{uid} => WAITING otherwise
         waitlistRef().addSnapshotListener((doc, e) -> {
-            boolean waiting = (doc != null && doc.exists());
+            boolean waiting = (doc != null && doc.exists() &&
+                    "waiting".equals(doc.getString("state")));
             recalcState(/*registered*/null, /*invited*/null, waiting);
         });
     }
@@ -275,16 +276,14 @@ public class EventDetailsFragment extends Fragment {
         if (eventId == null) return;
         db.collection("events").document(eventId)
                 .collection("waitlist")
+                .whereEqualTo("state", "waiting")            // ← only count waiting
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    if (snapshots != null) {
-                        int count = snapshots.size();
-                        textWaitlistCount.setText("Waitlist count: " + count);
-                    } else {
-                        textWaitlistCount.setText("Waitlist count: N/A");
-                    }
+                    int count = (snapshots == null) ? 0 : snapshots.size();
+                    textWaitlistCount.setText("Waitlist count: " + count);
                 });
     }
+
 
     // ========= UI helpers =========
     private void renderButton() {
