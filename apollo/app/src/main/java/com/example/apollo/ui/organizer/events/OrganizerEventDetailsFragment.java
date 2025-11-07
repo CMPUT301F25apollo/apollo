@@ -8,16 +8,31 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 /**
  * OrganizerEventDetailsFragment.java
@@ -42,6 +57,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
     private String eventId;
+    // NEW: hold event title for notification text
+    private String eventName = "Event";
 
     /**
      * Inflates the layout for the event details screen, initializes UI elements,
@@ -61,6 +78,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_organizer_event_details, container, false);
 
         db = FirebaseFirestore.getInstance();
+
 
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
