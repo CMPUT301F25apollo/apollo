@@ -1,3 +1,22 @@
+/**
+ * EventDetailsFragment.java
+ *
+ * This fragment shows all the details about a specific event (title, description,
+ * date, time, capacity, etc) and lets users join or leave the event’s waitlist.
+ * It also updates the screen automatically when the user’s registration status
+ * changes in Firestore.
+ *
+ * The fragment listens to live updates from Firestore collections
+ * (registrations, invites, waitlist) and changes the button text or state
+ * based on the user’s current status.
+ *
+ * Design pattern: Follows a simple MVC-style setup — this fragment acts as the
+ * controller/view while Firestore acts as the model layer.
+ *
+ * Current issues:
+ * - Minimal error handling for failed Firestore operations
+ * - Could improve visuals or loading states for async actions
+ */
 package com.example.apollo.ui.home;
 
 import android.content.Intent;
@@ -17,7 +36,6 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
-import android.widget.ImageView;
 
 import com.example.apollo.ui.login.LoginActivity;
 import com.example.apollo.R;
@@ -27,7 +45,6 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.bumptech.glide.Glide;
 
 import java.util.HashMap;
 
@@ -39,7 +56,6 @@ public class EventDetailsFragment extends Fragment {
     private TextView textWaitlistCount;
     private Button buttonJoinWaitlist;
     private ImageButton backButton;
-    private ImageView eventPosterImage;
 
     private String eventId;
     private String uid;
@@ -69,7 +85,6 @@ public class EventDetailsFragment extends Fragment {
         loginText = view.findViewById(R.id.loginText);
         backButton = view.findViewById(R.id.back_button);
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
-        eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
@@ -119,13 +134,6 @@ public class EventDetailsFragment extends Fragment {
                         Long eventCapacity = document.getLong("eventCapacity");
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
-                        String posterUrl = document.getString("eventPosterUrl");
-
-                        if (posterUrl != null && !posterUrl.isEmpty()) {
-                            Glide.with(requireContext())
-                                    .load(posterUrl)
-                                    .into(eventPosterImage);
-                        }
 
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
@@ -182,6 +190,7 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    // keep the latest view of each signal and then choose the priority
 
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
         if (registered != null) hasRegistered = registered;

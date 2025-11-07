@@ -88,6 +88,24 @@ public class SignUpActivity extends AppCompatActivity {
                     return;
                 }
 
+                // Username validation
+                if (username.length() < 5) {
+                    editTextUsername.setError("Username must be at least 5 characters long");
+                    return;
+                }
+
+                // Phone number validation
+                if (!phoneNumber.matches("\\d{10}")) {
+                    editTextPhoneNumber.setError("Phone number must be exactly 10 digits");
+                    return;
+                }
+
+                // Optional email validation
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    editTextEmail.setError("Please enter a valid email address");
+                    return;
+                }
+
                 mAuth.createUserWithEmailAndPassword(email, password)
                         .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
                             @Override
@@ -98,7 +116,7 @@ public class SignUpActivity extends AppCompatActivity {
                                     Map<String, Object> user = new HashMap<>();
                                     user.put("name", name);
                                     user.put("email", email);
-                                    user.put("phoneNumber", phoneNumber);
+                                    user.put("phone", phoneNumber);
                                     user.put("username", username);
                                     String role = isOrganizer ? "organizer" : "entrant";
                                     user.put("role", role);
