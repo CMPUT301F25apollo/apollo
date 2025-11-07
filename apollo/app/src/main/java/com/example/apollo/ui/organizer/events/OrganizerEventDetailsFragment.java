@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -18,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
@@ -53,6 +55,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
     private String eventId;
+    private ImageView eventPosterImage;
 
     // For notification text
     private String eventName = "Event";
@@ -73,6 +76,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonEditEvent = view.findViewById(R.id.buttonEditEvent);
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
+        eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
@@ -126,10 +130,16 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String time = document.getString("time");
                         String registrationOpen = document.getString("registrationOpen");
                         String registrationClose = document.getString("registrationClose");
-
                         Long eventCapacity = document.getLong("eventCapacity");
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
+                        String posterUrl = document.getString("eventPosterUrl");
+
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .into(eventPosterImage);
+                        }
 
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
@@ -148,7 +158,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
 
-                        // ⚠️ store event name for notification text
+                        // store event name for notification text
                         eventName = (title != null && !title.isEmpty()) ? title : "Event";
 
                         textEventTitle.setText(title != null ? title : "Untitled Event");
