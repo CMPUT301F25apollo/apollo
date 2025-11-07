@@ -171,8 +171,6 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-    // keep the latest view of each signal and then choose the priority
-    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
 
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
         if (registered != null) hasRegistered = registered;
