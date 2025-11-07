@@ -44,7 +44,7 @@ public class NotificationsFragment extends Fragment {
 
         // Recycler setup
         binding.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new NotificationsAdapter(this::onNotificationClick);
+        adapter = new NotificationsAdapter(null);
         binding.recycler.setAdapter(adapter);
 
 // Empty state visible until data arrives
