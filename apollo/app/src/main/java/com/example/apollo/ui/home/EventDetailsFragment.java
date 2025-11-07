@@ -21,6 +21,7 @@
 package com.example.apollo.ui.home;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -82,12 +83,15 @@ public class EventDetailsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
+
+
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
         buttonJoinWaitlist = view.findViewById(R.id.buttonJoinWaitlist);
         loginText = view.findViewById(R.id.loginText);
-        backButton = view.findViewById(R.id.back_button);
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
@@ -96,11 +100,6 @@ public class EventDetailsFragment extends Fragment {
             loadEventDetails(eventId);
             listenToWaitlistCount(eventId);
         }
-
-        backButton.setOnClickListener(v -> {
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_navigation_event_details_to_navigation_home);
-        });
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -335,4 +334,49 @@ public class EventDetailsFragment extends Fragment {
     private void toast(String m) {
         if (getContext() != null) Toast.makeText(getContext(), m, Toast.LENGTH_SHORT).show();
     }
+
+    private void showQrCodeModal() {
+        if (eventId == null) return;
+
+        // Inflate a custom layout for the modal
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
+        ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
+        Button closeButton = dialogView.findViewById(R.id.closeButton);
+
+        // Generate QR code bitmap from eventId (or qrData)
+        Bitmap qrBitmap = generateQRCode(eventId); // You need a method that returns a Bitmap
+        qrImageView.setImageBitmap(qrBitmap);
+
+        // Create dialog
+        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
+                .setView(dialogView)
+                .create();
+
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    private Bitmap generateQRCode(String data) {
+        try {
+            com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
+            com.google.zxing.common.BitMatrix bitMatrix = writer.encode(data, com.google.zxing.BarcodeFormat.QR_CODE, 500, 500);
+
+            int width = bitMatrix.getWidth();
+            int height = bitMatrix.getHeight();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    bmp.setPixel(x, y, bitMatrix.get(x, y) ? android.graphics.Color.BLACK : android.graphics.Color.WHITE);
+                }
+            }
+            return bmp;
+        } catch (Exception e) {
+            Log.e("QR", "Error generating QR code", e);
+            return null;
+        }
+    }
+
+
 }
