@@ -1,5 +1,5 @@
 /**
- * *hi
+ *
  * EventDetailsFragment.java
  *
  * This fragment shows all the details about a specific event (title, description,
