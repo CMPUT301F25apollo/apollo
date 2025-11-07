@@ -134,6 +134,27 @@ public class SettingsFragment extends Fragment {
             return;
         }
 
+        // Username validation
+        if (username.length() < 5) {
+            editUsername.setError("Username must be at least 5 characters long");
+            editUsername.requestFocus();
+            return;
+        }
+
+        // Phone validation (if entered it must be 10 digits)
+        if (!phone.isEmpty() && !phone.matches("\\d{10}")) {
+            editPhone.setError("Phone number must be exactly 10 digits");
+            editPhone.requestFocus();
+            return;
+        }
+
+        // email validation
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            editEmail.setError("Please enter a valid email address");
+            editEmail.requestFocus();
+            return;
+        }
+
         Map<String, Object> user = new HashMap<>();
         user.put("name", name);
         user.put("username", username);
