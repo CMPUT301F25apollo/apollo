@@ -85,6 +85,13 @@ public class HomeFragment extends Fragment {
             filterEvents(showOpen, showClosed);
         });
 
+        ImageButton qrButton = view.findViewById(R.id.buttonQrScanner);
+
+        qrButton.setOnClickListener(v -> {
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.action_navigation_home_to_qrScannerFragment);
+        });
+
         // Load events from Firestore
         loadEventsFromFirestore();
 
