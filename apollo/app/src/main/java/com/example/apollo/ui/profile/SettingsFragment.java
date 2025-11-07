@@ -41,7 +41,7 @@ import java.util.Map;
  * Acts as a Controller in the MVC pattern, mediating between the view (EditText fields and Button)
  * and the model (Firestore user data).
  *
- * Outstanding Issues / TODOs:
+ * Outstanding Issues:
  * - Add input validation for email and phone formats.
  * - Improve error handling for Firestore operations.
  * - Consider adding a loading indicator while profile data is being fetched or saved.

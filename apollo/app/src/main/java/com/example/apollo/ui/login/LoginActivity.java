@@ -20,6 +20,22 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
+/**
+ * LoginActivity.java
+ *
+ * Purpose:
+ * Handles the login screen of the application. Allows users to sign in
+ * using email and password through Firebase Authentication. Also provides
+ * options to sign up or continue as a guest.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, connecting user input from
+ * the login view with Firebase Authentication (the model).
+ *
+ * Notes:
+ * - Could include input validation improvements.
+ * - Consider adding a "Forgot Password" option in the future.
+ */
 public class LoginActivity extends AppCompatActivity {
 
     private EditText editTextEmail, editTextPassword;
@@ -28,38 +44,51 @@ public class LoginActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
 
+    /**
+     * Called when the activity is created.
+     * Checks if a user is already signed in, initializes UI components,
+     * and sets up listeners for login, sign-up, and guest mode actions.
+     *
+     * @param savedInstanceState The saved state of the activity, if available.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         mAuth = FirebaseAuth.getInstance();
 
-        // Auto-login
+        // Check if a user is already logged in
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
-            return; // Stop executing rest of the onCreate
+            return;
         }
 
-        // Continue to show login screen
+        // Show the login screen
         setContentView(R.layout.activity_login);
 
-        // Initialize Firebase Auth & UI components
+        // Connect UI components
         editTextEmail = findViewById(R.id.editTextEmail);
         editTextPassword = findViewById(R.id.editTextPassword);
         buttonLogin = findViewById(R.id.buttonLogin);
         textViewSignUp = findViewById(R.id.textViewSignUp);
         textViewGuest = findViewById(R.id.textViewGuest);
 
-        // Login button click
+        // Handle login button click
         buttonLogin.setOnClickListener(new View.OnClickListener() {
+            /**
+             * Handles the login button click event.
+             * Validates input and performs Firebase Authentication.
+             *
+             * @param v The view that was clicked.
+             */
             @Override
             public void onClick(View v) {
                 String email = editTextEmail.getText().toString().trim();
                 String password = editTextPassword.getText().toString().trim();
 
-                // Validation checks
+                // Check if email or password is empty
                 if (TextUtils.isEmpty(email)) {
                     editTextEmail.setError("Email is required.");
                     return;
@@ -70,22 +99,28 @@ public class LoginActivity extends AppCompatActivity {
                     return;
                 }
 
-                //  Firebase login
+                // Try logging in using Firebase Authentication
                 mAuth.signInWithEmailAndPassword(email, password)
                         .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                            /**
+                             * Called when Firebase sign-in completes.
+                             * If successful, navigates to MainActivity.
+                             * Otherwise, shows an error message.
+                             *
+                             * @param task The authentication task.
+                             */
                             @Override
                             public void onComplete(@NonNull Task<AuthResult> task) {
                                 if (task.isSuccessful()) {
-                                    Toast.makeText(LoginActivity.this, "Login successful.",
-                                            Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(LoginActivity.this,
+                                            "Login successful.", Toast.LENGTH_SHORT).show();
 
-                                    // Go to MainActivity
                                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                                     startActivity(intent);
-                                    finish(); // Close LoginActivity
+                                    finish();
                                 } else {
-                                    Toast.makeText(LoginActivity.this, "Authentication failed: "
-                                                    + task.getException().getMessage(),
+                                    Toast.makeText(LoginActivity.this,
+                                            "Authentication failed: " + task.getException().getMessage(),
                                             Toast.LENGTH_SHORT).show();
                                 }
                             }
@@ -93,16 +128,26 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        //  Sign up text click
+        // Handle sign-up text click
         textViewSignUp.setOnClickListener(new View.OnClickListener() {
+            /**
+             * Opens the SignUpActivity when the sign-up text is clicked.
+             *
+             * @param v The view that was clicked.
+             */
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(LoginActivity.this, SignUpActivity.class));
             }
         });
 
-        // Guest mode text click
+        // Handle guest mode text click
         textViewGuest.setOnClickListener(new View.OnClickListener() {
+            /**
+             * Opens the MainActivity in guest mode when clicked.
+             *
+             * @param v The view that was clicked.
+             */
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);

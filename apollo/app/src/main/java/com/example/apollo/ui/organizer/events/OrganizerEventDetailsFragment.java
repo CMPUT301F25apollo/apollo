@@ -7,7 +7,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.EditText;
@@ -15,19 +14,16 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
@@ -37,32 +33,46 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
 import android.text.TextUtils;
 
 /**
  * OrganizerEventDetailsFragment.java
  *
  * Purpose:
- * Displays detailed information for a specific event created by an organizer.
- * Provides options to edit the event, send a lottery, and view participant lists.
+ * Displays detailed information about a specific event created by an organizer.
+ * Allows the organizer to edit event details, run a lottery for entrants, and view the waitlist.
+ * Also generates a QR code for event identification.
  *
  * Design Pattern:
- * - Implements the Controller role in the MVC pattern.
- * - Interacts with Firestore (Model) to fetch and display event details in the View.
- * - Uses Android Navigation for screen transitions.
+ * - Acts as the Controller in the MVC pattern.
+ * - Connects Firestore (Model) with the layout views (View).
+ * - Uses Android Navigation for transitions between screens.
+ *
+ * Notes:
+ * - Lottery selection randomly picks entrants from the waitlist and sends notifications.
+ * - Supports QR code generation for event access.
  */
 public class OrganizerEventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
-    private String eventId;
     private ImageView eventPosterImage;
+    private String eventId;
+    private String eventName = "Event";
     private static final String TAG = "LotteryFix";
 
-    // For notification text
-    private String eventName = "Event";
-
+    /**
+     * Called when the fragment’s view is created.
+     * Initializes Firestore and UI components, loads event details,
+     * and sets up button click actions.
+     *
+     * @param inflater Used to inflate the layout.
+     * @param container The parent view group.
+     * @param savedInstanceState Bundle with saved state, if any.
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -86,7 +96,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             loadEventDetails(eventId);
         }
 
-
+        // Navigate to edit event screen
         buttonEditEvent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -94,7 +104,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
-        //  Wire lottery prompt
+        // Prompt organizer to input number of winners, then run lottery
         buttonSendLottery.setOnClickListener(v -> {
             if (eventId == null || eventId.isEmpty()) {
                 Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
@@ -103,6 +113,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             askForWinnerCountAndRunLottery(eventId, eventName);
         });
 
+        // Navigate to waitlist participant screen
         buttonViewParticipants.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -110,15 +121,17 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_event_waitlist, bundle);
         });
 
+        // QR button opens a modal with generated QR code
         ImageView qrButton = view.findViewById(R.id.qrButton);
         qrButton.setOnClickListener(v -> showQrCodeModal());
-
 
         return view;
     }
 
     /**
-     * Loads event details from Firestore using the event ID and displays them in the UI.
+     * Loads event details from Firestore and displays them in the UI.
+     *
+     * @param eventId The ID of the event to load.
      */
     private void loadEventDetails(String eventId) {
         DocumentReference eventRef = db.collection("events").document(eventId);
@@ -138,9 +151,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String posterUrl = document.getString("eventPosterUrl");
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
-                            Glide.with(this)
-                                    .load(posterUrl)
-                                    .into(eventPosterImage);
+                            Glide.with(this).load(posterUrl).into(eventPosterImage);
                         }
 
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
@@ -155,20 +166,17 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 ? "Waitlist: " + waitlistCapacity
                                 : "Waitlist: N/A";
 
-                        String dateText = (date != null) ? date : "N/A";
-                        String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
 
-                        // store event name for notification text
                         eventName = (title != null && !title.isEmpty()) ? title : "Event";
 
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
                                 "Location: " + locationText + "\n" +
-                                        "Date: " + dateText + "\n" +
-                                        "Time: " + timeText + "\n" +
+                                        "Date: " + date + "\n" +
+                                        "Time: " + time + "\n" +
                                         "Price: " + priceText + "\n" +
                                         "Registration: " + registrationPeriod + "\n" +
                                         capacityText + "\n" +
@@ -178,14 +186,15 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
-                .addOnFailureListener(e ->
-                        Log.e("Firestore", "Error loading event details", e));
+                .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
     }
 
-    // ============================================================
-    // LOTTERY HELPERS (added)
-    // ============================================================
-
+    /**
+     * Prompts the organizer to enter how many winners should be selected for the lottery.
+     *
+     * @param eventId The ID of the event.
+     * @param eventName The name of the event for notification messages.
+     */
     private void askForWinnerCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
         if (getContext() == null) return;
 
@@ -211,11 +220,15 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Selects a random number of winners from the event’s waitlist and sends them notifications.
+     *
+     * @param eventId The ID of the event.
+     * @param eventName The name of the event.
+     * @param winnersToPick The number of winners to select.
+     */
     private void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
-        if (getContext() == null) {
-            Log.w(TAG, "Context null; fragment likely detached.");
-            return;
-        }
+        if (getContext() == null) return;
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
@@ -225,12 +238,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .get()
                 .addOnSuccessListener(snap -> {
                     if (snap == null) {
-                        Log.w(TAG, "Waitlist query returned null snapshot.");
                         Toast.makeText(getContext(), "Failed to load waitlist.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
-                    // Build candidate list (docId preferred; fall back to a 'uid' field if present)
                     List<String> candidates = new ArrayList<>();
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String uid = d.getId();
@@ -238,14 +249,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
                             Object alt = d.get("uid");
                             if (alt != null) uid = String.valueOf(alt);
                         }
-                        if (TextUtils.isEmpty(uid)) {
-                            Log.w(TAG, "Skipping waitlist doc without uid: " + d.getReference().getPath());
-                            continue;
-                        }
-                        candidates.add(uid);
+                        if (!TextUtils.isEmpty(uid)) candidates.add(uid);
                     }
 
-                    // De-dupe in case of duplicates
                     candidates = new ArrayList<>(new java.util.LinkedHashSet<>(candidates));
 
                     if (candidates.isEmpty()) {
@@ -256,12 +262,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     Collections.shuffle(candidates, new Random());
                     int K = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, K);
-                    Log.d(TAG, "Winners picked: " + winners);
 
                     WriteBatch batch = fdb.batch();
 
                     for (String uid : winners) {
-                        // events/{eventId}/invites/{uid}
+                        // Create invite entry
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
@@ -271,7 +276,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // users/{uid}/notifications/{autoId}
+                        // Create notification for the user
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -280,13 +285,12 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("type", "lottery_win");
                         notif.put("eventId", eventId);
                         notif.put("title", "You were selected!");
-                        // no “Tap to register.” here — static text only
                         notif.put("message", "You won the lottery for " + eventName + ".");
                         notif.put("createdAt", FieldValue.serverTimestamp());
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // events/{eventId}/waitlist/{uid} -> invited
+                        // Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -305,12 +309,15 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                             });
                 })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Waitlist query failed", e);
-                    Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                .addOnFailureListener(e -> Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    /**
+     * Generates a QR code image from a given string.
+     *
+     * @param data The string to encode in the QR code.
+     * @return A Bitmap representing the QR code, or null if generation fails.
+     */
     private Bitmap generateQRCode(String data) {
         try {
             com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
@@ -322,7 +329,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
             for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
-                    bmp.setPixel(x, y, bitMatrix.get(x, y) ? android.graphics.Color.BLACK : android.graphics.Color.WHITE);
+                    bmp.setPixel(x, y, bitMatrix.get(x, y)
+                            ? android.graphics.Color.BLACK
+                            : android.graphics.Color.WHITE);
                 }
             }
             return bmp;
@@ -331,28 +340,25 @@ public class OrganizerEventDetailsFragment extends Fragment {
             return null;
         }
     }
+
+    /**
+     * Displays a modal showing the QR code for the current event.
+     */
     private void showQrCodeModal() {
         if (eventId == null) return;
 
-        // Inflate a custom layout for the modal
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
         ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
         Button closeButton = dialogView.findViewById(R.id.closeButton);
 
-        // Generate QR code bitmap from eventId (or qrData)
-        Bitmap qrBitmap = generateQRCode(eventId); // You need a method that returns a Bitmap
+        Bitmap qrBitmap = generateQRCode(eventId);
         qrImageView.setImageBitmap(qrBitmap);
 
-        // Create dialog
         final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
                 .setView(dialogView)
                 .create();
 
         closeButton.setOnClickListener(v -> dialog.dismiss());
-
         dialog.show();
     }
-
-
-
 }
