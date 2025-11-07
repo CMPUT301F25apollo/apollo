@@ -148,12 +148,12 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 : "Not specified";
 
                         String capacityText = (eventCapacity != null)
-                                ? "Capacity: " + eventCapacity
-                                : "Capacity: N/A";
+                                ? "Event Capacity : " + eventCapacity
+                                : "Event Capacity: N/A";
 
                         String waitlistText = (waitlistCapacity != null)
-                                ? "Waitlist: " + waitlistCapacity
-                                : "Waitlist: N/A";
+                                ? "Waitlist Capacity: " + waitlistCapacity
+                                : "Waitlist Capacity: N/A";
 
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
