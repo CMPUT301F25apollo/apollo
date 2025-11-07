@@ -115,8 +115,7 @@ public class ProfileFragment extends Fragment {
 
             v.findViewById(R.id.btnSettings).setOnClickListener(view ->
                     NavHostFragment.findNavController(ProfileFragment.this)
-                            .navigate(R.id.navigation_settings)
-            );
+                            .navigate(R.id.action_navigation_profile_to_navigation_settings)            );
 
             Button btnLogout = v.findViewById(R.id.btnLogout);
             btnLogout.setOnClickListener(new View.OnClickListener() {
