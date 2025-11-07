@@ -5,82 +5,170 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModel;
-import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
-import com.example.apollo.databinding.FragmentHomeBinding;
-import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
 public class HomeFragment extends Fragment {
 
-    private FragmentHomeBinding binding;
+    // rmbering last filter selections
+    private boolean showOpen = true;
+    private boolean showClosed = true;
+
     private FirebaseFirestore db;
+    private LinearLayout eventsContainer;
+    private final List<Event> allEvents = new ArrayList<>();
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        binding = FragmentHomeBinding.inflate(inflater, container, false);
-        View root = binding.getRoot();
-
+        // Initialize Firestore
         db = FirebaseFirestore.getInstance();
-        HomeViewModel homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
 
-        loadEvents();
+        // Bind views
+        ImageButton filterButton = view.findViewById(R.id.buttonFilter);
+        eventsContainer = view.findViewById(R.id.eventsContainer);
 
-        return root;
+        // Navigate to FilterFragment when filter icon is clicked
+        filterButton.setOnClickListener(v -> {
+            //pass current filter states to FilterFragment
+            Bundle args = new Bundle();
+            args.putBoolean("open", showOpen);
+            args.putBoolean("closed", showClosed);
+
+            NavHostFragment.findNavController(this)
+                    .navigate(R.id.action_navigation_home_to_navigation_filter, args);
+        });
+
+        //listen for filter results (only once)
+        getParentFragmentManager().setFragmentResultListener("filters", this, (reqKey, bundle) -> {
+            showOpen = bundle.getBoolean("open");
+            showClosed = bundle.getBoolean("closed");
+            filterEvents(showOpen, showClosed);
+        });
+
+        // Load events from Firestore
+        loadEventsFromFirestore();
+
+        return view;
     }
 
-    private void loadEvents() {
+    private void loadEventsFromFirestore() {
         db.collection("events")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    LinearLayout container = binding.eventsContainer;
-                    container.removeAllViews();
+                    eventsContainer.removeAllViews();
+                    allEvents.clear();
 
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String eventId = document.getId();
                         String title = document.getString("title");
-                        String description = document.getString("description");
                         String location = document.getString("location");
-                        String time = document.getString("time");
-                        String date = document.getString("date");
+                        String openDateStr = document.getString("registrationOpen");
+                        String closeDateStr = document.getString("registrationClose");
+
+                        boolean isClosed = false;
+                        boolean isOpen = false;
+
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+                            Date today = new Date();
+
+                            Date openDate = openDateStr != null ? sdf.parse(openDateStr) : null;
+                            Date closeDate = closeDateStr != null ? sdf.parse(closeDateStr) : null;
+
+                            if (closeDate != null && closeDate.before(today)) {
+                                // past event → closed
+                                isClosed = true;
+                                isOpen = false;
+                            } else if (openDate != null && openDate.after(today)) {
+                                // not started yet → treat as open
+                                isClosed = false;
+                                isOpen = true;
+                            } else {
+                                // ongoing or missing dates → treat as open (still available)
+                                isClosed = false;
+                                isOpen = true;
+                            }
+                        } catch (Exception e) {
+                            Log.w("DateParse", "Failed to parse registration dates", e);
+                            // if parsing fails, assume event is open
+                            isOpen = true;
+                        }
 
                         View card = LayoutInflater.from(getContext())
-                                .inflate(R.layout.item_event_card, container, false);
+                                .inflate(R.layout.item_event_card, eventsContainer, false);
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
+                        titleView.setText(title != null ? title : "Untitled Event");
 
-                        titleView.setText(title);
+                        // dim past (closed) events
+                        card.setAlpha(isClosed ? 0.4f : 1.0f);
 
                         card.setOnClickListener(v -> {
                             Bundle bundle = new Bundle();
                             bundle.putString("eventId", eventId);
-
                             NavController navController = NavHostFragment.findNavController(this);
                             navController.navigate(R.id.action_navigation_home_to_navigation_event_details, bundle);
                         });
 
-                        container.addView(card);
+                        eventsContainer.addView(card);
+                        allEvents.add(new Event(title, location, isOpen, isClosed, card));
                     }
+
+                    // always reapply the current filter after loading
+                    filterEvents(showOpen, showClosed);
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        binding = null;
+    private void filterEvents(boolean showOpen, boolean showClosed) {
+        // if both are false, show all
+        boolean showAll = !showOpen && !showClosed;
+
+        for (Event e : allEvents) {
+            boolean show = false;
+
+            if (showAll) {
+                show = true;
+            } else {
+                if (showOpen && e.isOpen()) show = true;
+                if (showClosed && e.isClosed()) show = true;
+            }
+
+            e.getView().setVisibility(show ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private static class Event {
+        private final boolean isOpen;
+        private final boolean isClosed;
+        private final View view;
+
+        public Event(String title, String location, boolean isOpen, boolean isClosed, View view) {
+            this.isOpen = isOpen;
+            this.isClosed = isClosed;
+            this.view = view;
+        }
+
+        public boolean isOpen() { return isOpen; }
+        public boolean isClosed() { return isClosed; }
+        public View getView() { return view; }
     }
 }

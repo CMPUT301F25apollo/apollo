@@ -182,20 +182,33 @@ public class EventDetailsFragment extends Fragment {
                                         toast("Failed to leave: " + e.getMessage());
                                     });
                         } else {
-                            // Join waitlist
-                            HashMap<String, Object> data = new HashMap<>();
-                            data.put("joinedAt", FieldValue.serverTimestamp());
-                            waitlistRef().set(data)
-                                    .addOnSuccessListener(ok -> {
-                                        joined = true;
-                                        renderButton();
-                                        setLoading(false);
-                                        toast("Joined waitlist");
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        setLoading(false);
-                                        toast("Failed to join: " + e.getMessage());
-                                    });
+                            // ✅ Check if user already joined before adding again
+                            waitlistRef().get().addOnSuccessListener(snapshot -> {
+                                if (snapshot.exists()) {
+                                    joined = true;
+                                    renderButton();
+                                    setLoading(false);
+                                    toast("You’ve already joined this waitlist.");
+                                } else {
+                                    // Safe to join
+                                    HashMap<String, Object> data = new HashMap<>();
+                                    data.put("joinedAt", FieldValue.serverTimestamp());
+                                    waitlistRef().set(data)
+                                            .addOnSuccessListener(ok -> {
+                                                joined = true;
+                                                renderButton();
+                                                setLoading(false);
+                                                toast("Joined waitlist");
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                setLoading(false);
+                                                toast("Failed to join: " + e.getMessage());
+                                            });
+                                }
+                            }).addOnFailureListener(e -> {
+                                setLoading(false);
+                                toast("Check failed: " + e.getMessage());
+                            });
                         }
                     });
                 })
