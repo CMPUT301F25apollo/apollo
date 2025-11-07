@@ -7,6 +7,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ImageView;
+import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -72,12 +74,21 @@ public class EventsFragment extends Fragment {
                         String location = document.getString("location");
                         String time = document.getString("time");
                         String date = document.getString("date");
+                        String posterUrl = document.getString("eventPosterUrl");
 
                         View card = LayoutInflater.from(getContext())
                                 .inflate(R.layout.item_event_card, container, false);
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
                         titleView.setText(title);
+
+                        ImageView posterView = card.findViewById(R.id.eventPosterImage);
+
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .into(posterView);
+                        }
 
                         card.setOnClickListener(v -> {
                             Bundle bundle = new Bundle();

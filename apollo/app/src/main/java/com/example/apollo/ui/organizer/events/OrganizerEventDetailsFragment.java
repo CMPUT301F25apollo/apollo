@@ -7,32 +7,19 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.EditText;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
-import com.google.firebase.firestore.WriteBatch;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
 
 /**
  * OrganizerEventDetailsFragment.java
@@ -56,19 +43,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
+    private ImageView eventPosterImage;
     private String eventId;
-    // NEW: hold event title for notification text
     private String eventName = "Event";
 
-    /**
-     * Inflates the layout for the event details screen, initializes UI elements,
-     * and sets up click listeners for navigation and actions.
-     *
-     * @param inflater  LayoutInflater used to inflate the fragment layout.
-     * @param container Parent ViewGroup for the fragment.
-     * @param savedInstanceState Bundle containing saved instance state, if any.
-     * @return The root view for the fragment layout.
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -79,27 +57,29 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
 
-
+        // Initialize views
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
         buttonEditEvent = view.findViewById(R.id.buttonEditEvent);
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
+        eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
+        // Get eventId passed from navigation
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadEventDetails(eventId);
         }
 
-        // Handles back navigation to the event list.
+        // Back button → returns to event list
         ImageButton backButton = view.findViewById(R.id.back_button);
         backButton.setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
         });
 
-        // Navigates to the AddEventFragment for editing the event.
+        // Edit event button → navigates to AddEvent screen
         buttonEditEvent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -107,16 +87,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
-        // CHANGED: wire lottery action
-        buttonSendLottery.setOnClickListener(v -> {
-            if (eventId == null) return;
-            askForWinnerCountAndRunLottery(eventId, eventName);
-        });
-        // Logs a message when the "Send Lottery" button is pressed.
+        // Send lottery button (placeholder)
         buttonSendLottery.setOnClickListener(v ->
                 Log.d("Organizer", "Send Lottery clicked for event " + eventId));
 
-        // Navigates to the event waitlist fragment.
+        // View participants button → navigates to waitlist fragment
         buttonViewParticipants.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -133,11 +108,13 @@ public class OrganizerEventDetailsFragment extends Fragment {
      * @param eventId The Firestore document ID of the event to load.
      */
     private void loadEventDetails(String eventId) {
+        if (eventId == null) return;
+
         DocumentReference eventRef = db.collection("events").document(eventId);
         eventRef.get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
-                        // Extract event data fields safely.
+                        // Extract event data
                         String title = document.getString("title");
                         String description = document.getString("description");
                         String location = document.getString("location");
@@ -145,30 +122,37 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String time = document.getString("time");
                         String registrationOpen = document.getString("registrationOpen");
                         String registrationClose = document.getString("registrationClose");
-
                         Long eventCapacity = document.getLong("eventCapacity");
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
+                        String posterUrl = document.getString("eventPosterUrl");
 
-                        // Construct readable strings.
+                        // Log the URL for debugging
+                        Log.d("OrganizerEvent", "Poster URL: " + posterUrl);
+
+                        // Load event poster image using Glide
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .into(eventPosterImage);
+                        }
+
+                        // Build readable text
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-
                         String capacityText = (eventCapacity != null)
                                 ? "Capacity: " + eventCapacity
                                 : "Capacity: N/A";
-
                         String waitlistText = (waitlistCapacity != null)
                                 ? "Waitlist: " + waitlistCapacity
                                 : "Waitlist: N/A";
-
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
 
-                        // Update the UI with event details.
+                        // Update text views
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(

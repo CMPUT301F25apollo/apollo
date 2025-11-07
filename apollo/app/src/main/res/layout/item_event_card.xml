@@ -25,13 +25,14 @@
 
     <!-- Event image -->
     <ImageView
-        android:id="@+id/eventImage"
+        android:id="@+id/eventPosterImage"
         android:layout_width="match_parent"
-        android:layout_height="150dp"
+        android:layout_height="220dp"
+        android:adjustViewBounds="true"
         android:scaleType="centerCrop"
-        android:layout_marginBottom="6dp"
-        android:background="#BDBDBD"
-        android:contentDescription="Event Image"/>
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no" />
 
     <!-- Short description -->
 </LinearLayout>

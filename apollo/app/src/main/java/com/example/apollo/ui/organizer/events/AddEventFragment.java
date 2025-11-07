@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
+import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -153,8 +154,8 @@ public class AddEventFragment extends Fragment {
     }
 
     private void uploadImageAndSaveEvent() {
-        String filename = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("event_images/" + filename);
+        String filename = UUID.randomUUID().toString() + ".jpg";
+        StorageReference imageRef = storageRef.child("event_posters/" + filename);
 
         imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl()
@@ -167,7 +168,7 @@ public class AddEventFragment extends Fragment {
 
     private void saveEvent(String imageUrl) {
         Map<String, Object> event = buildEventMap();
-        if (imageUrl != null) event.put("imageUrl", imageUrl);
+        if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
         if (eventId != null) {
             db.collection("events").document(eventId)
@@ -181,9 +182,9 @@ public class AddEventFragment extends Fragment {
         } else {
             db.collection("events")
                     .add(event)
-                    .addOnSuccessListener(docRef -> {
-                        Toast.makeText(getContext(), "Event added successfully!", Toast.LENGTH_SHORT).show();
-                        getParentFragmentManager().popBackStack();
+                    .addOnSuccessListener(uri -> {
+                        String downloadUrl = uri.toString();
+                        saveEvent(downloadUrl); // Pass URL to Firestore
                     })
                     .addOnFailureListener(e ->
                             Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
@@ -219,10 +220,11 @@ public class AddEventFragment extends Fragment {
                 registrationClose.setText(document.getString("registrationClose"));
 
                 // Load existing image URL if available
-                if (document.contains("imageUrl")) {
-                    existingImageUrl = document.getString("imageUrl");
-                    // Optionally, use Glide or Picasso to load URL into ImageView
-                    // Glide.with(getContext()).load(existingImageUrl).into(eventImagePreview);
+                if (document.contains("eventPosterUrl")) {
+                    existingImageUrl = document.getString("eventPosterUrl");
+                    Glide.with(requireContext())
+                            .load(existingImageUrl)
+                            .into(eventImagePreview);
                 }
             }
         }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));
