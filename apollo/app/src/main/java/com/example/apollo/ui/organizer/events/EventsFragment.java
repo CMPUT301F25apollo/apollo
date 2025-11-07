@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 
+
 import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
@@ -25,11 +26,20 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 /**
- * Fragment that displays a list of events created by the currently logged-in organizer.
- * <p>
- * Each event card includes a title, optional poster image, and click navigation
- * to the corresponding event details screen. The fragment also provides a button
- * to add new events.
+ * EventsFragment.java
+ *
+ * Purpose:
+ * Displays all events created by the currently logged-in organizer.
+ * Fetches data from Firestore and displays event cards with title, image, and navigation options.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, managing the display of Firestore data (model)
+ * inside a scrollable layout (view).
+ *
+ * Notes:
+ * - Only events created by the logged-in user are displayed.
+ * - Each card navigates to an event detail page when clicked.
+ * - Glide is used for image loading.
  */
 public class EventsFragment extends Fragment {
 
@@ -43,15 +53,13 @@ public class EventsFragment extends Fragment {
     private FirebaseFirestore db;
 
     /**
-     * Called to have the fragment instantiate its user interface view.
-     * <p>
-     * This method inflates the fragment layout, initializes Firebase and ViewModel instances,
-     * loads the organizer’s events from Firestore, and sets up navigation for creating new events.
+     * Called when the fragment’s view is created.
+     * Initializes Firebase, loads events for the current user, and sets up button listeners.
      *
-     * @param inflater  LayoutInflater used to inflate the layout XML file
-     * @param container Optional parent view that the fragment’s UI should attach to
-     * @param savedInstanceState previously saved instance state, if available
-     * @return the root view for this fragment’s layout
+     * @param inflater Used to inflate the fragment layout.
+     * @param container The parent view group for the fragment.
+     * @param savedInstanceState The saved instance state, if available.
+     * @return The root view of the fragment.
      */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -66,7 +74,7 @@ public class EventsFragment extends Fragment {
         // Load all events created by the logged-in organizer
         loadEvents();
 
-        // Navigate to the Add Event screen when the button is clicked
+        // Handle "Add New Event" button click
         binding.addNewEventButton.setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.action_navigation_organizer_events_to_navigation_organizer_add_event);
@@ -93,7 +101,7 @@ public class EventsFragment extends Fragment {
         String uid = currentUser.getUid();
 
         db.collection("events")
-                .whereEqualTo("creatorId", uid)  // Only fetch events created by this user
+                .whereEqualTo("creatorId", uid)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     LinearLayout container = binding.eventsContainer;
@@ -102,21 +110,17 @@ public class EventsFragment extends Fragment {
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String eventId = document.getId();
                         String title = document.getString("title");
-                        String description = document.getString("description");
-                        String location = document.getString("location");
-                        String time = document.getString("time");
-                        String date = document.getString("date");
                         String posterUrl = document.getString("eventPosterUrl");
 
-                        // Inflate a new event card layout
+                        // Inflate card layout
                         View card = LayoutInflater.from(getContext())
                                 .inflate(R.layout.item_event_card, container, false);
 
-                        // Set event title
+                        // Set title
                         TextView titleView = card.findViewById(R.id.eventTitle);
                         titleView.setText(title);
 
-                        // Load poster image if available
+                        // Set image if available
                         ImageView posterView = card.findViewById(R.id.eventPosterImage);
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this)
@@ -124,7 +128,7 @@ public class EventsFragment extends Fragment {
                                     .into(posterView);
                         }
 
-                        // Navigate to the event details screen when the card is tapped
+                        // Navigate to event details on click
                         card.setOnClickListener(v -> {
                             Bundle bundle = new Bundle();
                             bundle.putString("eventId", eventId);
@@ -141,8 +145,8 @@ public class EventsFragment extends Fragment {
     }
 
     /**
-     * Cleans up the view binding reference when the view hierarchy is destroyed
-     * to prevent memory leaks.
+     * Called when the fragment’s view is destroyed.
+     * Clears the binding reference to avoid memory leaks.
      */
     @Override
     public void onDestroyView() {

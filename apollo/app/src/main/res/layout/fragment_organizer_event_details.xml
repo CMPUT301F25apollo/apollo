@@ -4,19 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-<ImageButton
-    android:id="@+id/back_button"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:src="@drawable/ic_arrow_back"
-    android:background="@android:color/transparent"
-    android:contentDescription="@string/back_button_desc"
-    android:layout_alignParentStart="true"
-    android:layout_alignParentTop="true"
-    android:layout_marginStart="8dp"
-    android:layout_marginTop="28dp"
-    android:elevation="4dp" />
-
     <ScrollView
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -59,18 +46,29 @@
                 tools:layout_editor_absoluteX="-8dp"
                 tools:layout_editor_absoluteY="68dp" />
 
-            <!-- Event title -->
-            <TextView
-                android:id="@+id/textEventTitle"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:lineSpacingExtra="4dp"
-                android:text="@string/event_title_placeholder"
-                android:textColor="@android:color/black"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:paddingTop="5dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="5dp">
+
+                <TextView
+                    android:id="@+id/textEventTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Event Title"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/qrButton"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:src="@drawable/qrcode" />
+            </LinearLayout>
 
             <!-- Event description -->
             <TextView

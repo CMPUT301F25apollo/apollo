@@ -1,15 +1,17 @@
 package com.example.apollo.models;
 
 /**
- * Represents an event created within the Apollo application.
- * <p>
- * This model class defines the core information for an event, including
- * its title, description, location, scheduled time, registration period,
- * and an optional poster image URL.
- * <p>
- * Instances of this class are typically stored in and retrieved from
- * Firebase Firestore. An empty constructor is included for Firebase’s
- * automatic data mapping.
+ * EntrantEvent.java
+ *
+ * Represents an event that an entrant (user) can register for.
+ * Each event stores its ID, name, date, and a waiting list of user IDs.
+ *
+ * This model is designed for use with Firebase Firestore or similar databases,
+ * where objects are serialized and deserialized automatically.
+ * It includes an empty constructor for compatibility with Firebase.
+ *
+ * The class also provides basic waiting list management methods for
+ * adding, removing, and checking user participation.
  */
 public class Event {
 
@@ -34,12 +36,7 @@ public class Event {
     /** The URL of the poster image associated with the event. */
     private String eventPosterUrl;
 
-    /**
-     * Default no-argument constructor required for Firebase and data binding.
-     * <p>
-     * Firebase automatically uses this constructor when deserializing
-     * documents into {@code Event} objects.
-     */
+    // Empty constructor... required for Firebase or data binding
     public Event() {}
 
     /**
@@ -76,11 +73,7 @@ public class Event {
 
     /** @return the event location */
     public String getLocation() { return location; }
-
-    /** @return the event time */
     public String getTime() { return time; }
-
-    /** @return the registration start date or time */
     public String getRegistrationStart() { return registrationStart; }
 
     /** @return the registration end date or time */

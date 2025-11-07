@@ -1,12 +1,12 @@
 package com.example.apollo.ui.organizer.events;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.EditText;
@@ -14,19 +14,16 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
@@ -37,29 +34,45 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import android.text.TextUtils;
+
 /**
  * OrganizerEventDetailsFragment.java
  *
  * Purpose:
- * Displays detailed information for a specific event created by an organizer.
- * Provides options to edit the event, send a lottery, and view participant lists.
+ * Displays detailed information about a specific event created by an organizer.
+ * Allows the organizer to edit event details, run a lottery for entrants, and view the waitlist.
+ * Also generates a QR code for event identification.
  *
  * Design Pattern:
- * - Implements the Controller role in the MVC pattern.
- * - Interacts with Firestore (Model) to fetch and display event details in the View.
- * - Uses Android Navigation for screen transitions.
+ * - Acts as the Controller in the MVC pattern.
+ * - Connects Firestore (Model) with the layout views (View).
+ * - Uses Android Navigation for transitions between screens.
+ *
+ * Notes:
+ * - Lottery selection randomly picks entrants from the waitlist and sends notifications.
+ * - Supports QR code generation for event access.
  */
 public class OrganizerEventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
-    private String eventId;
     private ImageView eventPosterImage;
-
-    // For notification text
+    private String eventId;
     private String eventName = "Event";
+    private static final String TAG = "LotteryFix";
 
+    /**
+     * Called when the fragment’s view is created.
+     * Initializes Firestore and UI components, loads event details,
+     * and sets up button click actions.
+     *
+     * @param inflater Used to inflate the layout.
+     * @param container The parent view group.
+     * @param savedInstanceState Bundle with saved state, if any.
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -83,12 +96,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             loadEventDetails(eventId);
         }
 
-        ImageButton backButton = view.findViewById(R.id.back_button);
-        backButton.setOnClickListener(v -> {
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
-        });
-
+        // Navigate to edit event screen
         buttonEditEvent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -96,7 +104,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_organizer_add_event, bundle);
         });
 
-        // ✅ Wire lottery prompt
+        // Prompt organizer to input number of winners, then run lottery
         buttonSendLottery.setOnClickListener(v -> {
             if (eventId == null || eventId.isEmpty()) {
                 Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
@@ -105,6 +113,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
             askForWinnerCountAndRunLottery(eventId, eventName);
         });
 
+        // Navigate to waitlist participant screen
         buttonViewParticipants.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -112,11 +121,17 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_event_waitlist, bundle);
         });
 
+        // QR button opens a modal with generated QR code
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
+
         return view;
     }
 
     /**
-     * Loads event details from Firestore using the event ID and displays them in the UI.
+     * Loads event details from Firestore and displays them in the UI.
+     *
+     * @param eventId The ID of the event to load.
      */
     private void loadEventDetails(String eventId) {
         DocumentReference eventRef = db.collection("events").document(eventId);
@@ -136,9 +151,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String posterUrl = document.getString("eventPosterUrl");
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
-                            Glide.with(this)
-                                    .load(posterUrl)
-                                    .into(eventPosterImage);
+                            Glide.with(this).load(posterUrl).into(eventPosterImage);
                         }
 
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
@@ -146,27 +159,24 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 : "Not specified";
 
                         String capacityText = (eventCapacity != null)
-                                ? "Capacity: " + eventCapacity
-                                : "Capacity: N/A";
+                                ? "Event Capacity : " + eventCapacity
+                                : "Event Capacity: N/A";
 
                         String waitlistText = (waitlistCapacity != null)
-                                ? "Waitlist: " + waitlistCapacity
-                                : "Waitlist: N/A";
+                                ? "Waitlist Capacity: " + waitlistCapacity
+                                : "Waitlist Capacity: N/A";
 
-                        String dateText = (date != null) ? date : "N/A";
-                        String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
 
-                        // store event name for notification text
                         eventName = (title != null && !title.isEmpty()) ? title : "Event";
 
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
                                 "Location: " + locationText + "\n" +
-                                        "Date: " + dateText + "\n" +
-                                        "Time: " + timeText + "\n" +
+                                        "Date: " + date + "\n" +
+                                        "Time: " + time + "\n" +
                                         "Price: " + priceText + "\n" +
                                         "Registration: " + registrationPeriod + "\n" +
                                         capacityText + "\n" +
@@ -176,35 +186,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
-                .addOnFailureListener(e ->
-                        Log.e("Firestore", "Error loading event details", e));
+                .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
     }
 
-    // ============================================================
-    // LOTTERY HELPERS (added)
-    // ============================================================
-
+    /**
+     * Prompts the organizer to enter how many winners should be selected for the lottery.
+     *
+     * @param eventId The ID of the event.
+     * @param eventName The name of the event for notification messages.
+     */
     private void askForWinnerCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
+        if (getContext() == null) return;
+
         EditText input = new EditText(requireContext());
         input.setHint("Number of winners");
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
 
-        new AlertDialog.Builder(requireContext())
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Run Lottery")
                 .setMessage("How many entrants should be selected?")
                 .setView(input)
                 .setPositiveButton("Run", (dlg, which) -> {
-                    String s = input.getText().toString().trim();
-                    if (s.isEmpty()) {
-                        Toast.makeText(getContext(), "Enter a number", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    int k;
-                    try {
-                        k = Integer.parseInt(s);
-                    } catch (Exception e) {
-                        k = 0;
-                    }
+                    String s = (input.getText() == null) ? "" : input.getText().toString().trim();
+                    int k = 0;
+                    try { k = Integer.parseInt(s); } catch (Exception ignore) {}
                     if (k <= 0) {
                         Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
                         return;
@@ -215,18 +220,39 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Selects a random number of winners from the event’s waitlist and sends them notifications.
+     *
+     * @param eventId The ID of the event.
+     * @param eventName The name of the event.
+     * @param winnersToPick The number of winners to select.
+     */
     private void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        if (getContext() == null) return;
 
-        db.collection("events").document(eventId)
+        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
+
+        fdb.collection("events").document(eventId)
                 .collection("waitlist")
                 .whereEqualTo("state", "waiting")
                 .get()
-                .addOnSuccessListener((QuerySnapshot snap) -> {
+                .addOnSuccessListener(snap -> {
+                    if (snap == null) {
+                        Toast.makeText(getContext(), "Failed to load waitlist.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
                     List<String> candidates = new ArrayList<>();
                     for (DocumentSnapshot d : snap.getDocuments()) {
-                        candidates.add(d.getId()); // waitlist docId == entrant uid
+                        String uid = d.getId();
+                        if (TextUtils.isEmpty(uid)) {
+                            Object alt = d.get("uid");
+                            if (alt != null) uid = String.valueOf(alt);
+                        }
+                        if (!TextUtils.isEmpty(uid)) candidates.add(uid);
                     }
+
+                    candidates = new ArrayList<>(new java.util.LinkedHashSet<>(candidates));
 
                     if (candidates.isEmpty()) {
                         Toast.makeText(getContext(), "No entrants in waitlist.", Toast.LENGTH_SHORT).show();
@@ -237,11 +263,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     int K = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, K);
 
-                    WriteBatch batch = db.batch();
+                    WriteBatch batch = fdb.batch();
 
                     for (String uid : winners) {
-                        // events/{eventId}/invites/{uid} -> invited
-                        DocumentReference inviteRef = db.collection("events")
+                        // Create invite entry
+                        DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
                                 .document(uid);
@@ -250,8 +276,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // users/{uid}/notifications/{autoId} -> notify win
-                        DocumentReference notifRef = db.collection("users")
+                        // Create notification for the user
+                        DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
                                 .document();
@@ -259,13 +285,13 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("type", "lottery_win");
                         notif.put("eventId", eventId);
                         notif.put("title", "You were selected!");
-                        notif.put("message", "You won the lottery for " + eventName);
+                        notif.put("message", "You won the lottery for " + eventName + ".");
                         notif.put("createdAt", FieldValue.serverTimestamp());
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // events/{eventId}/waitlist/{uid} -> flip state to invited
-                        DocumentReference wlRef = db.collection("events")
+                        // Update waitlist entry
+                        DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
                                 .document(uid);
@@ -276,12 +302,63 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     }
 
                     batch.commit()
-                            .addOnSuccessListener(u -> Toast.makeText(getContext(),
-                                    "Lottery sent to " + K + " entrant(s).", Toast.LENGTH_SHORT).show())
-                            .addOnFailureListener(e -> Toast.makeText(getContext(),
-                                    "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                            .addOnSuccessListener(u ->
+                                    Toast.makeText(getContext(), "Lottery sent to " + K + " entrant(s).", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Batch commit failed", e);
+                                Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            });
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(),
-                        "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    /**
+     * Generates a QR code image from a given string.
+     *
+     * @param data The string to encode in the QR code.
+     * @return A Bitmap representing the QR code, or null if generation fails.
+     */
+    private Bitmap generateQRCode(String data) {
+        try {
+            com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
+            com.google.zxing.common.BitMatrix bitMatrix = writer.encode(data, com.google.zxing.BarcodeFormat.QR_CODE, 500, 500);
+
+            int width = bitMatrix.getWidth();
+            int height = bitMatrix.getHeight();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    bmp.setPixel(x, y, bitMatrix.get(x, y)
+                            ? android.graphics.Color.BLACK
+                            : android.graphics.Color.WHITE);
+                }
+            }
+            return bmp;
+        } catch (Exception e) {
+            Log.e("QR", "Error generating QR code", e);
+            return null;
+        }
+    }
+
+    /**
+     * Displays a modal showing the QR code for the current event.
+     */
+    private void showQrCodeModal() {
+        if (eventId == null) return;
+
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
+        ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
+        Button closeButton = dialogView.findViewById(R.id.closeButton);
+
+        Bitmap qrBitmap = generateQRCode(eventId);
+        qrImageView.setImageBitmap(qrBitmap);
+
+        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
+                .setView(dialogView)
+                .create();
+
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 }

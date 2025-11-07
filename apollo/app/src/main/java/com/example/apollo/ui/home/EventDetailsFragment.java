@@ -1,5 +1,5 @@
 /**
- * *hi
+ *
  * EventDetailsFragment.java
  *
  * This fragment shows all the details about a specific event (title, description,
@@ -21,6 +21,7 @@
 package com.example.apollo.ui.home;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -82,12 +83,15 @@ public class EventDetailsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
+
+
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
         buttonJoinWaitlist = view.findViewById(R.id.buttonJoinWaitlist);
         loginText = view.findViewById(R.id.loginText);
-        backButton = view.findViewById(R.id.back_button);
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
@@ -97,12 +101,8 @@ public class EventDetailsFragment extends Fragment {
             listenToWaitlistCount(eventId);
         }
 
-        backButton.setOnClickListener(v -> {
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_navigation_event_details_to_navigation_home);
-        });
-
         FirebaseUser currentUser = mAuth.getCurrentUser();
+
         if (currentUser == null) {
             loginText.setVisibility(View.VISIBLE);
             buttonJoinWaitlist.setOnClickListener(v ->
@@ -150,8 +150,8 @@ public class EventDetailsFragment extends Fragment {
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
-                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
+                        String capacityText = (eventCapacity != null) ? "Event Capacity: " + eventCapacity : "Event Capacity:  N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist Capacity: " + waitlistCapacity : "Waitlist Capacity: N/A";
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
@@ -168,11 +168,34 @@ public class EventDetailsFragment extends Fragment {
                                         "\n" + capacityText +
                                         "\n" + waitlistText
                         );
+                        if (waitlistCapacity != null) {
+                            db.collection("events").document(eventId)
+                                    .collection("waitlist")
+                                    .whereEqualTo("state", "waiting")
+                                    .get()
+                                    .addOnSuccessListener(snapshot -> {
+                                        int currentCount = snapshot.size();
+                                        if (currentCount >= waitlistCapacity) {
+                                            // Disable join button because waitlist is full
+                                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                                            buttonJoinWaitlist.setEnabled(false);
+                                            buttonJoinWaitlist.setBackgroundTintList(
+                                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                                            buttonJoinWaitlist.setTextColor(
+                                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                                        }
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Log.e("Firestore", "Failed to check waitlist capacity", e));
+                        }
+
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
+
+
     }
 
     // ========= live state =========
@@ -197,7 +220,8 @@ public class EventDetailsFragment extends Fragment {
 
         // 3) waitlist/{uid} => WAITING otherwise
         waitlistRef().addSnapshotListener((doc, e) -> {
-            boolean waiting = (doc != null && doc.exists());
+            boolean waiting = (doc != null && doc.exists() &&
+                    "waiting".equals(doc.getString("state")));
             recalcState(/*registered*/null, /*invited*/null, waiting);
         });
     }
@@ -266,6 +290,7 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+
     private DocumentReference waitlistRef() {
         return db.collection("events").document(eventId)
                 .collection("waitlist").document(uid);
@@ -275,16 +300,14 @@ public class EventDetailsFragment extends Fragment {
         if (eventId == null) return;
         db.collection("events").document(eventId)
                 .collection("waitlist")
+                .whereEqualTo("state", "waiting")            // ← only count waiting
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    if (snapshots != null) {
-                        int count = snapshots.size();
-                        textWaitlistCount.setText("Waitlist count: " + count);
-                    } else {
-                        textWaitlistCount.setText("Waitlist count: N/A");
-                    }
+                    int count = (snapshots == null) ? 0 : snapshots.size();
+                    textWaitlistCount.setText("Waitlist count: " + count);
                 });
     }
+
 
     // ========= UI helpers =========
     private void renderButton() {
@@ -335,4 +358,49 @@ public class EventDetailsFragment extends Fragment {
     private void toast(String m) {
         if (getContext() != null) Toast.makeText(getContext(), m, Toast.LENGTH_SHORT).show();
     }
+
+    private void showQrCodeModal() {
+        if (eventId == null) return;
+
+        // Inflate a custom layout for the modal
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
+        ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
+        Button closeButton = dialogView.findViewById(R.id.closeButton);
+
+        // Generate QR code bitmap from eventId (or qrData)
+        Bitmap qrBitmap = generateQRCode(eventId); // You need a method that returns a Bitmap
+        qrImageView.setImageBitmap(qrBitmap);
+
+        // Create dialog
+        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
+                .setView(dialogView)
+                .create();
+
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    private Bitmap generateQRCode(String data) {
+        try {
+            com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
+            com.google.zxing.common.BitMatrix bitMatrix = writer.encode(data, com.google.zxing.BarcodeFormat.QR_CODE, 500, 500);
+
+            int width = bitMatrix.getWidth();
+            int height = bitMatrix.getHeight();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    bmp.setPixel(x, y, bitMatrix.get(x, y) ? android.graphics.Color.BLACK : android.graphics.Color.WHITE);
+                }
+            }
+            return bmp;
+        } catch (Exception e) {
+            Log.e("QR", "Error generating QR code", e);
+            return null;
+        }
+    }
+
+
 }

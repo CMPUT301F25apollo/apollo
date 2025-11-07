@@ -8,14 +8,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.NavController;
-import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
-import com.example.apollo.R;
 import com.example.apollo.databinding.FragmentNotificationsBinding;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -24,6 +20,21 @@ import com.google.firebase.firestore.Query;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * NotificationsFragment.java
+ *
+ * Purpose:
+ * Displays a list of notifications for the current user.
+ * Retrieves notification data from Firestore and shows it using a RecyclerView.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, connecting the Firestore data (model)
+ * with the RecyclerView adapter (view).
+ *
+ * Notes:
+ * - Currently, notifications are non-clickable.
+ * - Can be extended later to support marking notifications as read or opening details.
+ */
 public class NotificationsFragment extends Fragment {
 
     private FragmentNotificationsBinding binding;
@@ -31,8 +42,16 @@ public class NotificationsFragment extends Fragment {
     private FirebaseAuth auth;
     private ListenerRegistration reg;
     private NotificationsAdapter adapter;
-    private final List<NotificationsViewModel> items = new ArrayList<>();
 
+    /**
+     * Called when the fragment’s view is being created.
+     * Sets up the RecyclerView and initializes Firebase instances.
+     *
+     * @param inflater Used to inflate the fragment layout.
+     * @param container The parent view that the fragment attaches to.
+     * @param savedInstanceState The saved state of the fragment, if available.
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -42,103 +61,69 @@ public class NotificationsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
 
-        // Recycler setup
+        // Set up RecyclerView layout
         binding.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        // Adapter without click functionality for now
         adapter = new NotificationsAdapter(null);
         binding.recycler.setAdapter(adapter);
 
-// Empty state visible until data arrives
+        // Show "empty" message until data is loaded
         binding.empty.setVisibility(View.VISIBLE);
 
-// --- Firestore: listen for notifications for the current user ---
-        if (auth.getCurrentUser() != null) {
-            db.collection("users")
-                    .document(auth.getCurrentUser().getUid())
-                    .collection("notifications")
-                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                    .addSnapshotListener((snap, e) -> {
-                        if (e != null || snap == null) return;
-
-                        java.util.List<NotificationsViewModel> items = new java.util.ArrayList<>();
-                        for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                            items.add(NotificationsViewModel.from(d));
-                        }
-
-                        adapter.setData(items);
-
-                        // toggle empty state visibility
-                        binding.empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-                    });
-        }
-
-
+        // No Firestore listener is attached here (handled in onStart)
         return binding.getRoot();
     }
 
+    /**
+     * Called when the fragment becomes visible.
+     * Starts listening for real-time updates from Firestore and updates the RecyclerView.
+     */
     @Override
     public void onStart() {
         super.onStart();
         if (auth.getCurrentUser() == null) return;
 
         String uid = auth.getCurrentUser().getUid();
-        reg = db.collection("users").document(uid)
+
+        // Listen for notifications from Firestore, ordered by newest first
+        reg = db.collection("users")
+                .document(uid)
                 .collection("notifications")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, e) -> {
                     if (e != null || snap == null) return;
 
-                    // live diff handling
-                    for (DocumentChange dc : snap.getDocumentChanges()) {
-                        DocumentSnapshot d = dc.getDocument();
-                        NotificationsViewModel n = NotificationsViewModel.from(d);
-                        switch (dc.getType()) {
-                            case ADDED:
-                                items.add(dc.getNewIndex(), n);
-                                adapter.notifyItemInserted(dc.getNewIndex());
-                                break;
-                            case MODIFIED:
-                                items.set(dc.getNewIndex(), n);
-                                adapter.notifyItemChanged(dc.getNewIndex());
-                                break;
-                            case REMOVED:
-                                items.remove(dc.getOldIndex());
-                                adapter.notifyItemRemoved(dc.getOldIndex());
-                                break;
-                        }
+                    List<NotificationsViewModel> fresh = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        fresh.add(NotificationsViewModel.from(d));
                     }
 
-                    binding.empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+                    adapter.setData(fresh);
+                    binding.empty.setVisibility(fresh.isEmpty() ? View.VISIBLE : View.GONE);
                 });
     }
 
+    /**
+     * Called when the fragment is no longer visible.
+     * Removes the Firestore listener to avoid memory leaks.
+     */
     @Override
     public void onStop() {
-        if (reg != null) { reg.remove(); reg = null; }
+        if (reg != null) {
+            reg.remove();
+            reg = null;
+        }
         super.onStop();
     }
 
+    /**
+     * Called when the fragment’s view is destroyed.
+     * Clears the binding reference to avoid memory leaks.
+     */
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
-    }
-
-    private void onNotificationClick(NotificationsViewModel n, int position) {
-        if (auth.getCurrentUser() == null) return;
-        String uid = auth.getCurrentUser().getUid();
-
-        // mark read
-        db.collection("users").document(uid)
-                .collection("notifications").document(n.id)
-                .update("read", true);
-
-        // route
-        if ("lottery_win".equals(n.type) && n.eventId != null && !n.eventId.isEmpty()) {
-            Bundle b = new Bundle();
-            b.putString("eventId", n.eventId);
-            NavController nav = NavHostFragment.findNavController(this);
-            nav.navigate(R.id.navigation_event_details, b);
-        }
-        // you can add other types here later
     }
 }
