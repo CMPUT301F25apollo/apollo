@@ -100,11 +100,8 @@ public class SignUpActivity extends AppCompatActivity {
                                     user.put("email", email);
                                     user.put("phoneNumber", phoneNumber);
                                     user.put("username", username);
-<<<<<<< Updated upstream
-                                    String role = isOrganizer ? "organizers" : "entrant";
-=======
+
                                     String role = isOrganizer ? "organizer" : "entrant";
->>>>>>> Stashed changes
                                     user.put("role", role);
 
                                     db.collection("users").document(userId)
