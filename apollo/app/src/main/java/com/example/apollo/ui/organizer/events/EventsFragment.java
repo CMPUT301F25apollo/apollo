@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 
+
 import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
@@ -42,8 +43,13 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
  */
 public class EventsFragment extends Fragment {
 
+    /** View binding instance for accessing layout elements safely. */
     private FragmentOrganizerEventsBinding binding;
+
+    /** ViewModel instance for managing event-related data (reserved for future use). */
     private EventsViewModel eventsViewModel;
+
+    /** Firestore instance used to load events from the database. */
     private FirebaseFirestore db;
 
     /**
@@ -65,6 +71,7 @@ public class EventsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         eventsViewModel = new ViewModelProvider(this).get(EventsViewModel.class);
 
+        // Load all events created by the logged-in organizer
         loadEvents();
 
         // Handle "Add New Event" button click
@@ -77,8 +84,12 @@ public class EventsFragment extends Fragment {
     }
 
     /**
-     * Loads all events created by the current user from Firestore.
-     * Displays each event as a card in the layout.
+     * Fetches and displays all events created by the current organizer.
+     * <p>
+     * The method queries Firestore for documents in the "events" collection
+     * where {@code creatorId} matches the current user’s UID. For each event document,
+     * a card view is inflated dynamically and populated with title, image, and click behavior.
+     * If an event poster URL is available, Glide loads and displays it.
      */
     private void loadEvents() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -126,6 +137,7 @@ public class EventsFragment extends Fragment {
                             navController.navigate(R.id.action_navigation_organizer_events_to_organizer_event_details, bundle);
                         });
 
+                        // Add card to container layout
                         container.addView(card);
                     }
                 })
