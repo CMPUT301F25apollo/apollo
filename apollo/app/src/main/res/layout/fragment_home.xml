@@ -8,7 +8,7 @@
     android:padding="20dp"
     tools:context=".ui.home.HomeFragment">
 
-    <!-- Header row with title and filter icon -->
+    <!-- Header row with title and filter + info icons -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,6 +23,7 @@
             android:textStyle="bold"
             android:textColor="@android:color/black" />
 
+        <!-- Filter Button (top-right corner) -->
         <ImageButton
             android:id="@+id/buttonFilter"
             android:layout_width="40dp"
@@ -31,8 +32,21 @@
             android:background="@android:color/transparent"
             android:contentDescription="Filter"
             android:src="@drawable/ic_filter_list" />
+
+        <!-- Info (light bulb) Button to show lottery popup -->
+        <!-- leaves space between info button and filter icon -->
+        <ImageButton
+            android:id="@+id/buttonInfo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="56dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/cd_lottery_info"
+            android:src="@drawable/ic_lightbulb_24" />
     </RelativeLayout>
 
+    <!-- Events section title -->
     <TextView
         android:text="EVENTS"
         android:textStyle="bold"
@@ -42,6 +56,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <!-- Scrollable list of event cards -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
