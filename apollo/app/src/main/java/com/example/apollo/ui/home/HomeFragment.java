@@ -17,12 +17,15 @@ import androidx.navigation.fragment.NavHostFragment;
 import com.example.apollo.R;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+
 
 public class HomeFragment extends Fragment {
 
@@ -42,6 +45,22 @@ public class HomeFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
 
         // Bind views
+        ImageButton infoButton = view.findViewById(R.id.buttonInfo);
+
+        infoButton.setOnClickListener(v -> {
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("How it works?")
+                    .setMessage(
+                            "Events use a lottery system to keep things fair:\n\n" +
+                                    "• Join the waiting list before registration closes.\n" +
+                                    "• When the deadline hits, entrants are randomly selected for available spots.\n" +
+                                    "• If you’re chosen, you’ll get a notification to confirm.\n" +
+                                    "• If someone declines or times out, the system picks the next person on the waitlist."
+                    )
+                    .setPositiveButton("Got it", null)
+                    .show();
+        });
+
         ImageButton filterButton = view.findViewById(R.id.buttonFilter);
         eventsContainer = view.findViewById(R.id.eventsContainer);
 
