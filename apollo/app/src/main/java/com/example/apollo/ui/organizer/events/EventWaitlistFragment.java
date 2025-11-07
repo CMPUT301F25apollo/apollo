@@ -45,6 +45,7 @@ public class EventWaitlistFragment extends Fragment {
         // Setup adapter
         adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, entrantsList);
         listView.setAdapter(adapter);
+        listView.setEmptyView(emptyTextView);
 
         db = FirebaseFirestore.getInstance();
 
@@ -60,42 +61,44 @@ public class EventWaitlistFragment extends Fragment {
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
+        emptyTextView.setText(""); // clear any previous error/empty text
+        entrantsList.clear();
+        adapter.notifyDataSetChanged();
+
         db.collection("events")
                 .document(eventId)
                 .collection("waitlist")
+                .whereEqualTo("state", "waiting") // << only show still-waiting entrants
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    entrantsList.clear();
-
                     if (querySnapshot.isEmpty()) {
                         emptyTextView.setText("No entrants in waitlist");
                         adapter.notifyDataSetChanged();
                         return;
                     }
 
+                    // load names for each waiting entrant
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         String entrantId = doc.getId();
-
-                        // Fetch user info from "users" collection
                         db.collection("users")
                                 .document(entrantId)
                                 .get()
                                 .addOnSuccessListener(userDoc -> {
                                     String name = userDoc.getString("name");
-                                    if (name != null) entrantsList.add(name);
-                                    else entrantsList.add(entrantId); // fallback to ID
-
+                                    entrantsList.add(name != null ? name : entrantId);
                                     adapter.notifyDataSetChanged();
                                 })
                                 .addOnFailureListener(e -> {
-                                    // fallback to ID on failure
                                     entrantsList.add(entrantId);
                                     adapter.notifyDataSetChanged();
                                 });
                     }
                 })
-                .addOnFailureListener(e -> emptyTextView.setText("Failed to load waitlist"));
+                .addOnFailureListener(e -> {
+                    emptyTextView.setText("Failed to load waitlist");
+                });
     }
+
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -112,6 +115,12 @@ public class EventWaitlistFragment extends Fragment {
         }
         return super.onOptionsItemSelected(item);
     }
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadWaitlistEntrants();  // reload the list when fragment becomes visible
+    }
+
 }
 
 

@@ -46,7 +46,8 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         NotificationsViewModel n = data.get(pos);
 
         h.title.setText(n.title == null ? "Notification" : n.title);
-        h.message.setText(n.message == null ? "" : n.message);
+        String msg = n.message == null ? "" : n.message.replace(" Tap to register.", "").trim();
+        h.message.setText(msg);
 
         // Dot + title style (system colors only; no custom color resources)
         h.dot.setVisibility(View.VISIBLE);
@@ -56,9 +57,9 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
 
         h.title.setTypeface(null, n.read ? Typeface.NORMAL : Typeface.BOLD);
 
-        h.itemView.setOnClickListener(v -> {
-            if (onClick != null) onClick.onClick(n, pos);
-        });
+        h.itemView.setOnClickListener(null);
+        h.itemView.setClickable(false);
+        h.itemView.setFocusable(false);
     }
 
     @Override
@@ -71,7 +72,7 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
             super(itemView);
             title   = itemView.findViewById(R.id.title);
             message = itemView.findViewById(R.id.message);
-            dot     = itemView.findViewById(R.id.dot); // can be any small View
+            dot     = itemView.findViewById(R.id.dot);
         }
     }
 }
