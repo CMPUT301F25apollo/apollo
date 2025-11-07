@@ -1,5 +1,6 @@
 package com.example.apollo.ui.organizer.events;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -85,11 +86,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
             loadEventDetails(eventId);
         }
 
-        ImageButton backButton = view.findViewById(R.id.back_button);
-        backButton.setOnClickListener(v -> {
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_navigation_organizer_event_details_to_navigation_organizer_events);
-        });
 
         buttonEditEvent.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
@@ -113,6 +109,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.navigation_event_waitlist, bundle);
         });
+
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
+
 
         return view;
     }
@@ -310,4 +310,49 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
+
+    private Bitmap generateQRCode(String data) {
+        try {
+            com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
+            com.google.zxing.common.BitMatrix bitMatrix = writer.encode(data, com.google.zxing.BarcodeFormat.QR_CODE, 500, 500);
+
+            int width = bitMatrix.getWidth();
+            int height = bitMatrix.getHeight();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    bmp.setPixel(x, y, bitMatrix.get(x, y) ? android.graphics.Color.BLACK : android.graphics.Color.WHITE);
+                }
+            }
+            return bmp;
+        } catch (Exception e) {
+            Log.e("QR", "Error generating QR code", e);
+            return null;
+        }
+    }
+    private void showQrCodeModal() {
+        if (eventId == null) return;
+
+        // Inflate a custom layout for the modal
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
+        ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
+        Button closeButton = dialogView.findViewById(R.id.closeButton);
+
+        // Generate QR code bitmap from eventId (or qrData)
+        Bitmap qrBitmap = generateQRCode(eventId); // You need a method that returns a Bitmap
+        qrImageView.setImageBitmap(qrBitmap);
+
+        // Create dialog
+        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
+                .setView(dialogView)
+                .create();
+
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+
+
 }
