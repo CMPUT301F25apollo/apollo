@@ -78,10 +78,6 @@ public class SignUpActivity extends AppCompatActivity {
                     return;
                 }
 
-                if (TextUtils.isEmpty(phoneNumber)) {
-                    editTextPhoneNumber.setError("Phone number is required.");
-                    return;
-                }
 
                 if (TextUtils.isEmpty(username)) {
                     editTextUsername.setError("Username is required.");
@@ -94,9 +90,9 @@ public class SignUpActivity extends AppCompatActivity {
                     return;
                 }
 
-                // Phone number validation
-                if (!phoneNumber.matches("\\d{10}")) {
-                    editTextPhoneNumber.setError("Phone number must be exactly 10 digits");
+                //OPTIONAL: Phone number can be empty OR exactly 10 digits
+                if (!TextUtils.isEmpty(phoneNumber) && !phoneNumber.matches("\\d{10}")) {
+                    editTextPhoneNumber.setError("Phone number must be exactly 10 digits or left blank");
                     return;
                 }
 
