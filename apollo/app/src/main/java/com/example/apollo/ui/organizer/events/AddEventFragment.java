@@ -21,6 +21,8 @@ import com.example.apollo.R;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -50,6 +52,9 @@ public class AddEventFragment extends Fragment {
     private String existingImageUrl = null; // for edit mode
     private String eventId = null; // for edit mode
 
+    private FirebaseAuth mAuth;
+
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -60,6 +65,7 @@ public class AddEventFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         storageRef = FirebaseStorage.getInstance().getReference();
+        mAuth = FirebaseAuth.getInstance();
 
         // Initialize views
         eventTitle = view.findViewById(R.id.eventTitle);
@@ -307,6 +313,12 @@ public class AddEventFragment extends Fragment {
         event.put("registrationOpen", registrationOpen.getText().toString().trim());
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
+
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            event.put("creatorId", currentUser.getUid());
+        }
+
         return event;
     }
 }

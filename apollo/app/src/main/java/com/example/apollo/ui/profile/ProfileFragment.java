@@ -22,6 +22,23 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+/**
+ * ProfileFragment.java
+ *
+ * Purpose:
+ * Displays the user's profile information and provides options to navigate to settings
+ * or log out. Handles both guest users and registered users by dynamically showing
+ * the appropriate UI elements.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern by mediating between the profile view (TextViews,
+ * Buttons, Groups) and the model (Firebase Authentication and Firestore user data).
+ *
+ * Outstanding Issues / TODOs:
+ * - Add error handling for Firestore failures.
+ * - Improve UI feedback for loading profile data.
+ * - Consider caching user data to reduce repeated Firestore calls.
+ */
 public class ProfileFragment extends Fragment {
 
     private TextView tvName;
@@ -30,6 +47,14 @@ public class ProfileFragment extends Fragment {
     private Button buttonLogin;
     private Group profileGroup;
 
+    /**
+     * Inflates the fragment's layout.
+     *
+     * @param inflater The LayoutInflater object used to inflate views.
+     * @param container The parent ViewGroup the fragment's UI should attach to.
+     * @param savedInstanceState Bundle containing saved state, if any.
+     * @return The root View for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -38,6 +63,13 @@ public class ProfileFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_profile, container, false);
     }
 
+    /**
+     * Called after the view has been created. Initializes UI components, handles guest
+     * vs registered user flows, loads user profile data, and sets up button click listeners.
+     *
+     * @param v The View returned by onCreateView().
+     * @param savedInstanceState Bundle containing saved state, if any.
+     */
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
@@ -51,6 +83,7 @@ public class ProfileFragment extends Fragment {
         boolean isGuest = getActivity().getIntent().getBooleanExtra("isGuest", false);
 
         if (isGuest) {
+            // Guest user flow
             profileGroup.setVisibility(View.GONE);
             buttonLogin.setVisibility(View.VISIBLE);
             buttonLogin.setOnClickListener(view -> {
@@ -62,6 +95,7 @@ public class ProfileFragment extends Fragment {
                 }
             });
         } else {
+            // Registered user flow
             profileGroup.setVisibility(View.VISIBLE);
             buttonLogin.setVisibility(View.GONE);
             FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -81,8 +115,7 @@ public class ProfileFragment extends Fragment {
 
             v.findViewById(R.id.btnSettings).setOnClickListener(view ->
                     NavHostFragment.findNavController(ProfileFragment.this)
-                            .navigate(R.id.navigation_settings)
-            );
+                            .navigate(R.id.action_navigation_profile_to_navigation_settings)            );
 
             Button btnLogout = v.findViewById(R.id.btnLogout);
             btnLogout.setOnClickListener(new View.OnClickListener() {

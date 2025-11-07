@@ -23,6 +23,7 @@ import com.example.apollo.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -39,7 +40,10 @@ public class EventDetailsFragment extends Fragment {
 
     private String eventId;
     private String uid;
-    private boolean joined = false;
+
+    // derived UI state
+    private enum State { NONE, WAITING, INVITED, REGISTERED }
+    private State state = State.NONE;
 
     @Nullable
     @Override
@@ -49,11 +53,9 @@ public class EventDetailsFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_event_details, container, false);
 
-        // Initialize Firebase
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        // Bind views
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
@@ -62,45 +64,33 @@ public class EventDetailsFragment extends Fragment {
         backButton = view.findViewById(R.id.back_button);
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
 
-        // Get arguments
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadEventDetails(eventId);
+            listenToWaitlistCount(eventId);
         }
 
-        // Back navigation
         backButton.setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
             navController.navigate(R.id.action_navigation_event_details_to_navigation_home);
         });
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
-
         if (currentUser == null) {
-            // Not signed in
             loginText.setVisibility(View.VISIBLE);
-            buttonJoinWaitlist.setOnClickListener(v->{
-                Toast.makeText(getContext(), "Login to join waitlist", Toast.LENGTH_SHORT).show();
-            });
-
+            buttonJoinWaitlist.setOnClickListener(v ->
+                    Toast.makeText(getContext(), "Login to join waitlist", Toast.LENGTH_SHORT).show());
             loginText.setOnClickListener(v -> {
                 Intent intent = new Intent(getActivity(), LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
-                if (getActivity() != null) {
-                    getActivity().finish();
-                }
+                if (getActivity() != null) getActivity().finish();
             });
         } else {
-            // Signed in
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
-            initWaitlistState();
-        }
-        if (getArguments() != null) {
-            eventId = getArguments().getString("eventId");
-            loadEventDetails(eventId);
-            listenToWaitlistCount(eventId); // added here
+            observeUserEventState();     // <-- NEW: live state
+            wireJoinLeaveAction();       // keep your join/leave behavior
         }
 
         return view;
@@ -126,12 +116,8 @@ public class EventDetailsFragment extends Fragment {
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-                        String capacityText = (eventCapacity != null)
-                                ? "Capacity: " + eventCapacity
-                                : "Capacity: N/A";
-                        String waitlistText = (waitlistCapacity != null)
-                                ? "Waitlist: " + waitlistCapacity
-                                : "Waitlist: N/A";
+                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
@@ -152,57 +138,99 @@ public class EventDetailsFragment extends Fragment {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
-                .addOnFailureListener(e ->
-                        Log.e("Firestore", "Error loading event details", e));
+                .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
     }
 
-    //waitlist logic below
+    // ========= live state =========
+    private void observeUserEventState() {
+        if (eventId == null || uid == null) return;
 
-    private void initWaitlistState() {
-        setLoading(true);
-        waitlistRef().get()
-                .addOnSuccessListener(snap -> {
-                    joined = snap.exists();
-                    renderButton();
-                    setLoading(false);
-
-                    buttonJoinWaitlist.setOnClickListener(v -> {
-                        setLoading(true);
-                        if (joined) {
-                            // Leave waitlist
-                            waitlistRef().delete()
-                                    .addOnSuccessListener(ok -> {
-                                        joined = false;
-                                        renderButton();
-                                        setLoading(false);
-                                        toast("Left waitlist");
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        setLoading(false);
-                                        toast("Failed to leave: " + e.getMessage());
-                                    });
-                        } else {
-                            // Join waitlist
-                            HashMap<String, Object> data = new HashMap<>();
-                            data.put("joinedAt", FieldValue.serverTimestamp());
-                            waitlistRef().set(data)
-                                    .addOnSuccessListener(ok -> {
-                                        joined = true;
-                                        renderButton();
-                                        setLoading(false);
-                                        toast("Joined waitlist");
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        setLoading(false);
-                                        toast("Failed to join: " + e.getMessage());
-                                    });
-                        }
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    setLoading(false);
-                    toast("Check failed: " + e.getMessage());
+        // 1) registrations/{uid} => REGISTERED wins highest priority
+        db.collection("events").document(eventId)
+                .collection("registrations").document(uid)
+                .addSnapshotListener((doc, e) -> {
+                    boolean registered = (doc != null && doc.exists());
+                    recalcState(registered, /*invited*/null, /*waiting*/null);
                 });
+
+        // 2) invites/{uid} => INVITED second
+        db.collection("events").document(eventId)
+                .collection("invites").document(uid)
+                .addSnapshotListener((doc, e) -> {
+                    boolean invited = (doc != null && doc.exists());
+                    recalcState(/*registered*/null, invited, /*waiting*/null);
+                });
+
+        // 3) waitlist/{uid} => WAITING otherwise
+        waitlistRef().addSnapshotListener((doc, e) -> {
+            boolean waiting = (doc != null && doc.exists());
+            recalcState(/*registered*/null, /*invited*/null, waiting);
+        });
+    }
+
+    // keep the latest view of each signal and then choose the priority
+    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
+
+    private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
+        if (registered != null) hasRegistered = registered;
+        if (invited != null)   hasInvited = invited;
+        if (waiting != null)   hasWaiting = waiting;
+
+        State newState = State.NONE;
+        if (Boolean.TRUE.equals(hasRegistered)) {
+            newState = State.REGISTERED;
+        } else if (Boolean.TRUE.equals(hasInvited)) {
+            newState = State.INVITED;
+        } else if (Boolean.TRUE.equals(hasWaiting)) {
+            newState = State.WAITING;
+        }
+
+        if (newState != state) {
+            state = newState;
+            renderButton();
+        }
+    }
+
+    // ========= join/leave logic (unchanged behavior for WAITING) =========
+    private void wireJoinLeaveAction() {
+        buttonJoinWaitlist.setOnClickListener(v -> {
+            if (state == State.INVITED) {
+                toast("You’ve already been invited. Check Notifications to proceed.");
+                return;
+            }
+            if (state == State.REGISTERED) {
+                toast("You’re already registered for this event.");
+                return;
+            }
+            if (state == State.WAITING) {
+                // leave
+                setLoading(true);
+                waitlistRef().delete()
+                        .addOnSuccessListener(ok -> {
+                            toast("Left waitlist");
+                            setLoading(false);
+                        })
+                        .addOnFailureListener(e -> {
+                            toast("Failed to leave: " + e.getMessage());
+                            setLoading(false);
+                        });
+            } else {
+                // join as waiting
+                setLoading(true);
+                HashMap<String, Object> data = new HashMap<>();
+                data.put("joinedAt", FieldValue.serverTimestamp());
+                data.put("state", "waiting");
+                waitlistRef().set(data)
+                        .addOnSuccessListener(ok -> {
+                            toast("Joined waitlist");
+                            setLoading(false);
+                        })
+                        .addOnFailureListener(e -> {
+                            toast("Failed to join: " + e.getMessage());
+                            setLoading(false);
+                        });
+            }
+        });
     }
 
     private DocumentReference waitlistRef() {
@@ -210,19 +238,12 @@ public class EventDetailsFragment extends Fragment {
                 .collection("waitlist").document(uid);
     }
 
-    //waitlist count function
     private void listenToWaitlistCount(String eventId) {
         if (eventId == null) return;
-
-        db.collection("events")
-                .document(eventId)
+        db.collection("events").document(eventId)
                 .collection("waitlist")
                 .addSnapshotListener((snapshots, e) -> {
-                    if (e != null) {
-                        Log.e("Firestore", "Listen failed: ", e);
-                        return;
-                    }
-
+                    if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
                     if (snapshots != null) {
                         int count = snapshots.size();
                         textWaitlistCount.setText("Waitlist count: " + count);
@@ -232,19 +253,45 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
+    // ========= UI helpers =========
     private void renderButton() {
-        if (joined) {
-            buttonJoinWaitlist.setText("LEAVE WAITLIST");
-            buttonJoinWaitlist.setBackgroundTintList(
-                    ContextCompat.getColorStateList(requireContext(), android.R.color.black));
-            buttonJoinWaitlist.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
-        } else {
-            buttonJoinWaitlist.setText("JOIN WAITLIST");
-            buttonJoinWaitlist.setBackgroundTintList(
-                    ContextCompat.getColorStateList(requireContext(), R.color.lightblue));
-            buttonJoinWaitlist.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.black));
+        switch (state) {
+            case REGISTERED:
+                buttonJoinWaitlist.setText("REGISTERED");
+                buttonJoinWaitlist.setEnabled(false);
+                buttonJoinWaitlist.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                buttonJoinWaitlist.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                break;
+
+            case INVITED:
+                buttonJoinWaitlist.setText("INVITED — CHECK NOTIFICATIONS");
+                buttonJoinWaitlist.setEnabled(false);
+                buttonJoinWaitlist.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                buttonJoinWaitlist.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                break;
+
+            case WAITING:
+                buttonJoinWaitlist.setText("LEAVE WAITLIST");
+                buttonJoinWaitlist.setEnabled(true);
+                buttonJoinWaitlist.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.black));
+                buttonJoinWaitlist.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                break;
+
+            case NONE:
+            default:
+                buttonJoinWaitlist.setText("JOIN WAITLIST");
+                buttonJoinWaitlist.setEnabled(true);
+                buttonJoinWaitlist.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), R.color.lightblue));
+                buttonJoinWaitlist.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.black));
         }
-        buttonJoinWaitlist.setEnabled(true);
     }
 
     private void setLoading(boolean loading) {

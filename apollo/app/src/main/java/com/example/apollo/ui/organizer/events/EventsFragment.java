@@ -16,6 +16,8 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
 import com.example.apollo.databinding.FragmentOrganizerEventsBinding;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -48,7 +50,16 @@ public class EventsFragment extends Fragment {
     }
 
     private void loadEvents() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Log.e("Firestore", "No logged-in user");
+            return;
+        }
+
+        String uid = currentUser.getUid();
+
         db.collection("events")
+                .whereEqualTo("creatorId", uid)  // Only fetch events created by this user
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     LinearLayout container = binding.eventsContainer;
@@ -66,7 +77,6 @@ public class EventsFragment extends Fragment {
                                 .inflate(R.layout.item_event_card, container, false);
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
-
                         titleView.setText(title);
 
                         card.setOnClickListener(v -> {
@@ -82,6 +92,7 @@ public class EventsFragment extends Fragment {
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
+
 
     @Override
     public void onDestroyView() {
