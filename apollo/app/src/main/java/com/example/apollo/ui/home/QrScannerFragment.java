@@ -52,15 +52,6 @@ public class QrScannerFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_qr_scanner, container, false);
         previewView = view.findViewById(R.id.previewView);
 
-        Button testButton = view.findViewById(R.id.testQrButton);
-        testButton.setOnClickListener(v -> {
-            String testEventId = "Egyu4JQQWtSnd1IShNDm"; // Replace with a real one
-            Bundle bundle = new Bundle();
-            bundle.putString("eventId", testEventId);
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.action_qrScanner_to_organizerEventDetails, bundle);
-        });
-
         db = FirebaseFirestore.getInstance();
 
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
@@ -69,6 +60,11 @@ public class QrScannerFragment extends Fragment {
         } else {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
+
+        view.findViewById(R.id.back_button).setOnClickListener(v -> {
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.popBackStack(); // goes back to Home
+        });
 
         return view;
     }
@@ -149,7 +145,7 @@ public class QrScannerFragment extends Fragment {
                             Bundle bundle = new Bundle();
                             bundle.putString("eventId", eventId);
                             NavController navController = NavHostFragment.findNavController(this);
-                            navController.navigate(R.id.action_qrScanner_to_organizerEventDetails, bundle);
+                            navController.navigate(R.id.action_qrScannerFragment_to_navigation_event_details, bundle);
                         } else {
                             Log.w("QR", "No such event found for scanned ID: " + eventId);
                         }

@@ -80,8 +80,8 @@
         android:name="com.example.apollo.ui.home.QrScannerFragment"
         android:label="QR Scanner">
         <action
-            android:id="@+id/action_qrScanner_to_organizerEventDetails"
-            app:destination="@id/navigation_organizer_event_details" />
+            android:id="@+id/action_qrScannerFragment_to_navigation_event_details"
+            app:destination="@id/navigation_event_details" />
     </fragment>
 
 
