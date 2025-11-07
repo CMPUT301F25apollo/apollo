@@ -140,7 +140,14 @@ public class HomeFragment extends Fragment {
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
                         titleView.setText(title != null ? title : "Untitled Event");
+
                         ImageView posterView = card.findViewById(R.id.eventPosterImage);
+
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .into(posterView);
+                        }
 
                         // dim past (closed) events
                         card.setAlpha(isClosed ? 0.4f : 1.0f);
