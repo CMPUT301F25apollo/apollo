@@ -8,6 +8,9 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ImageView;
+
+import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -101,6 +104,7 @@ public class HomeFragment extends Fragment {
                         String location = document.getString("location");
                         String openDateStr = document.getString("registrationOpen");
                         String closeDateStr = document.getString("registrationClose");
+                        String posterUrl = document.getString("eventPosterUrl");
 
                         boolean isClosed = false;
                         boolean isOpen = false;
@@ -136,6 +140,7 @@ public class HomeFragment extends Fragment {
 
                         TextView titleView = card.findViewById(R.id.eventTitle);
                         titleView.setText(title != null ? title : "Untitled Event");
+                        ImageView posterView = card.findViewById(R.id.eventPosterImage);
 
                         // dim past (closed) events
                         card.setAlpha(isClosed ? 0.4f : 1.0f);

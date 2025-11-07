@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
+import android.widget.ImageView;
 
 import com.example.apollo.ui.login.LoginActivity;
 import com.example.apollo.R;
@@ -26,6 +27,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.bumptech.glide.Glide;
 
 import java.util.HashMap;
 
@@ -37,6 +39,7 @@ public class EventDetailsFragment extends Fragment {
     private TextView textWaitlistCount;
     private Button buttonJoinWaitlist;
     private ImageButton backButton;
+    private ImageView eventPosterImage;
 
     private String eventId;
     private String uid;
@@ -66,6 +69,7 @@ public class EventDetailsFragment extends Fragment {
         loginText = view.findViewById(R.id.loginText);
         backButton = view.findViewById(R.id.back_button);
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
+        eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
@@ -115,6 +119,13 @@ public class EventDetailsFragment extends Fragment {
                         Long eventCapacity = document.getLong("eventCapacity");
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
+                        String posterUrl = document.getString("eventPosterUrl");
+
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(requireContext())
+                                    .load(posterUrl)
+                                    .into(eventPosterImage);
+                        }
 
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose

@@ -23,5 +23,6 @@
     <string name="event_title">Event Title</string>
     <string name="event_image_preview">Event image preview</string>
     <string name="cd_lottery_info">How the lottery works</string>
+    <string name="event_poster">Event Poster</string>
 
 </resources>

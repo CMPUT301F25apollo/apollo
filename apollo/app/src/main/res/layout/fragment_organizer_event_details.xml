@@ -110,6 +110,15 @@
             app:layout_constraintTop_toBottomOf="@+id/eventCard"
             app:layout_constraintVertical_bias="0.846">
 
+            <ImageView
+                android:id="@+id/eventPosterImage"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="@string/event_poster"
+                android:layout_marginBottom="12dp"
+                android:background="@color/black" />
+
             <Button
                 android:id="@+id/buttonEditEvent"
                 android:layout_width="0dp"
