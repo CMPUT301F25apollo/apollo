@@ -19,7 +19,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class EventWaitlistFragment extends Fragment {
 
@@ -61,14 +63,14 @@ public class EventWaitlistFragment extends Fragment {
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
-        emptyTextView.setText(""); // clear any previous error/empty text
+        emptyTextView.setText(""); // clear previous text
         entrantsList.clear();
         adapter.notifyDataSetChanged();
 
         db.collection("events")
                 .document(eventId)
                 .collection("waitlist")
-                .whereEqualTo("state", "waiting") // << only show still-waiting entrants
+                .whereEqualTo("state", "waiting")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (querySnapshot.isEmpty()) {
@@ -77,7 +79,8 @@ public class EventWaitlistFragment extends Fragment {
                         return;
                     }
 
-                    // load names for each waiting entrant
+                    Set<String> uniqueEntrants = new LinkedHashSet<>();
+
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         String entrantId = doc.getId();
                         db.collection("users")
@@ -85,11 +88,17 @@ public class EventWaitlistFragment extends Fragment {
                                 .get()
                                 .addOnSuccessListener(userDoc -> {
                                     String name = userDoc.getString("name");
-                                    entrantsList.add(name != null ? name : entrantId);
+                                    uniqueEntrants.add(name != null ? name : entrantId);
+
+                                    // Update list and adapter only once
+                                    entrantsList.clear();
+                                    entrantsList.addAll(uniqueEntrants);
                                     adapter.notifyDataSetChanged();
                                 })
                                 .addOnFailureListener(e -> {
-                                    entrantsList.add(entrantId);
+                                    uniqueEntrants.add(entrantId);
+                                    entrantsList.clear();
+                                    entrantsList.addAll(uniqueEntrants);
                                     adapter.notifyDataSetChanged();
                                 });
                     }
@@ -98,6 +107,7 @@ public class EventWaitlistFragment extends Fragment {
                     emptyTextView.setText("Failed to load waitlist");
                 });
     }
+
 
 
     @Override
