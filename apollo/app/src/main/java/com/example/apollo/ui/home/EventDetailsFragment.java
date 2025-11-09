@@ -50,7 +50,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
 
@@ -187,6 +190,39 @@ public class EventDetailsFragment extends Fragment {
                                     })
                                     .addOnFailureListener(e ->
                                             Log.e("Firestore", "Failed to check waitlist capacity", e));
+                        }
+
+                        boolean isClosed = false;
+
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+                            Date today = new Date();
+
+                            Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
+                            Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
+
+                            if (closeDate != null && closeDate.before(today)) {
+                                // past event = closed
+                                isClosed = true;
+                            } else if (openDate != null && openDate.after(today)) {
+                                // not started yet → treat as open
+                                isClosed = false;
+                            } else {
+                                // ongoing or missing dates → treat as open (still available)
+                                isClosed = false;
+                            }
+                        } catch (Exception e) {
+                            Log.w("DateParse", "Failed to parse registration dates", e);
+                        }
+
+                        if (isClosed){
+                            buttonJoinWaitlist.setText("Registration is closed");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
                         }
 
                     } else {
