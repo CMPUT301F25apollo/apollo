@@ -159,7 +159,6 @@ public class EventDetailsFragment extends Fragment {
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
-
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
@@ -334,15 +333,43 @@ public class EventDetailsFragment extends Fragment {
 
     private void listenToWaitlistCount(String eventId) {
         if (eventId == null) return;
-        db.collection("events").document(eventId)
-                .collection("waitlist")
-                .whereEqualTo("state", "waiting")            // ← only count waiting
-                .addSnapshotListener((snapshots, e) -> {
-                    if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    int count = (snapshots == null) ? 0 : snapshots.size();
-                    textWaitlistCount.setText("Waitlist count: " + count);
-                });
+
+        DocumentReference eventRef = db.collection("events").document(eventId);
+
+        eventRef.addSnapshotListener((eventSnapshot, eventError) -> {
+            if (eventError != null || eventSnapshot == null || !eventSnapshot.exists()) {
+                Log.e("Firestore", "Error listening to event document", eventError);
+                return;
+            }
+
+            Long waitlistCapacity = eventSnapshot.getLong("waitlistCapacity");
+            if (waitlistCapacity == null) waitlistCapacity = 0L;
+
+            Long finalWaitlistCapacity = waitlistCapacity;
+            eventRef.collection("waitlist")
+                    .whereEqualTo("state", "waiting")
+                    .addSnapshotListener((waitlistSnapshot, waitlistError) -> {
+                        if (waitlistError != null) {
+                            Log.e("Firestore", "Error listening to waitlist", waitlistError);
+                            return;
+                        }
+
+                        int count = (waitlistSnapshot == null) ? 0 : waitlistSnapshot.size();
+                        textWaitlistCount.setText("Waitlist count: " + count);
+
+                        // If full → immediately disable button and show "WAITLIST FULL"
+                        if (count >= finalWaitlistCapacity && finalWaitlistCapacity > 0) {
+                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+                    });
+        });
     }
+
 
 
     // ========= UI helpers =========
