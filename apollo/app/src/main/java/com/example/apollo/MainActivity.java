@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
                         navView.inflateMenu(R.menu.bottom_nav_organizer_menu);
                         navController.setGraph(R.navigation.organizer_mobile_navigation);
                         setupNavController(navController, new AppBarConfiguration.Builder(
-                                R.id.navigation_organizer_events, R.id.navigation_organizer_add_event, R.id.navigation_profile).build());
+                                R.id.navigation_organizer_events, R.id.navigation_notifications, R.id.navigation_profile).build());
                     } else {
                         // Entrant UI
                         navView.getMenu().clear();

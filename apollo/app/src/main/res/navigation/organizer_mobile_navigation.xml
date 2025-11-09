@@ -24,7 +24,7 @@
     <fragment
         android:id="@+id/navigation_organizer_add_event"
         android:name="com.example.apollo.ui.organizer.events.AddEventFragment"
-        android:label="Add New Event"
+        android:label="fill event Details"
         tools:layout="@layout/fragment_add_event">
 
         <action
