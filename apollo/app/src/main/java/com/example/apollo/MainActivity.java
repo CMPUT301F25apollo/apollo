@@ -82,6 +82,13 @@ public class MainActivity extends AppCompatActivity {
                         navController.setGraph(R.navigation.organizer_mobile_navigation);
                         setupNavController(navController, new AppBarConfiguration.Builder(
                                 R.id.navigation_organizer_events, R.id.navigation_notifications, R.id.navigation_profile).build());
+                    }else if("admin".equals(role)){
+                        // Entrant UI
+                        navView.getMenu().clear();
+                        navView.inflateMenu(R.menu.bottom_nav_menu_admin);
+                        navController.setGraph(R.navigation.admin_mobile_navigation);
+                        setupNavController(navController, new AppBarConfiguration.Builder(
+                                R.id.navigation_events, R.id.navigation_profiles, R.id.navigation_notifications, R.id.navigation_images).build());
                     } else {
                         // Entrant UI
                         navView.getMenu().clear();
