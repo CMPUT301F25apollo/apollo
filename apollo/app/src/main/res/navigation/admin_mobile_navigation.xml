@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/admin_mobile_navigation"
+    app:startDestination="@id/navigation_events">
+
+    <!-- Events -->
+    <fragment
+        android:id="@+id/navigation_events"
+        android:name="com.example.apollo.ui.admin.events.EventsFragment"
+        android:label="Events"
+        tools:layout="@layout/fragment_events_admin">
+    </fragment>
+
+    <!--  -->
+    <fragment
+        android:id="@+id/navigation_profiles"
+        android:name="com.example.apollo.ui.admin.profiles.ProfilesFragment"
+        android:label="profiles"
+        tools:layout="@layout/fragment_profiles_admin" />
+
+    <!-- 📄 Event Details -->
+    <fragment
+        android:id="@+id/navigation_event_details"
+        android:name="com.example.apollo.ui.home.EventDetailsFragment"
+        android:label="Event Details"
+        tools:layout="@layout/fragment_event_details">
+
+    </fragment>
+
+    <!-- 🔔 Notifications -->
+    <fragment
+        android:id="@+id/navigation_notifications"
+        android:name="com.example.apollo.ui.admin.notifications.NotificationsFragment"
+        android:label="@string/title_notifications"
+        tools:layout="@layout/fragment_notifications_admin" />
+
+    <!-- 👤 Profile -->
+    <fragment
+        android:id="@+id/navigation_images"
+        android:name="com.example.apollo.ui.admin.images.ImagesFragment"
+        android:label="images"
+        tools:layout="@layout/fragment_images_admin">
+
+<!--        &lt;!&ndash; ✅ Profile → Settings &ndash;&gt;-->
+<!--        <action-->
+<!--            android:id="@+id/action_navigation_profile_to_navigation_settings"-->
+<!--            app:destination="@id/navigation_settings" />-->
+    </fragment>
+
+<!--    &lt;!&ndash; ⚙️ Settings &ndash;&gt;-->
+<!--    <fragment-->
+<!--        android:id="@+id/navigation_settings"-->
+<!--        android:name="com.example.apollo.ui.profile.SettingsFragment"-->
+<!--        android:label="Settings"-->
+<!--        tools:layout="@layout/fragment_settings" />-->
+
+<!--    &lt;!&ndash;    QR Code Scanner&ndash;&gt;-->
+<!--    <fragment-->
+<!--        android:id="@+id/qrScannerFragment"-->
+<!--        android:name="com.example.apollo.ui.home.QrScannerFragment"-->
+<!--        android:label="QR Scanner">-->
+<!--        <action-->
+<!--            android:id="@+id/action_qrScannerFragment_to_navigation_event_details"-->
+<!--            app:destination="@id/navigation_event_details" />-->
+<!--    </fragment>-->
+
+
+</navigation>
