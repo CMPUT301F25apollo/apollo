@@ -23,7 +23,7 @@
     <!-- 📄 Event Details -->
     <fragment
         android:id="@+id/navigation_event_details"
-        android:name="com.example.apollo.ui.home.EventDetailsFragment"
+        android:name="com.example.apollo.ui.entrant.home.EventDetailsFragment"
         android:label="Event Details"
         tools:layout="@layout/fragment_event_details">
 
