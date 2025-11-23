@@ -1,5 +1,5 @@
 /**
- * *hi
+ *
  * EventDetailsFragment.java
  *
  * This fragment shows all the details about a specific event (title, description,
@@ -50,7 +50,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
 
@@ -102,6 +105,7 @@ public class EventDetailsFragment extends Fragment {
         }
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
+
         if (currentUser == null) {
             loginText.setVisibility(View.VISIBLE);
             buttonJoinWaitlist.setOnClickListener(v ->
@@ -149,13 +153,12 @@ public class EventDetailsFragment extends Fragment {
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
-                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
+                        String capacityText = (eventCapacity != null) ? "Event Capacity: " + eventCapacity : "Event Capacity:  N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist Capacity: " + waitlistCapacity : "Waitlist Capacity: N/A";
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
-
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
@@ -167,11 +170,67 @@ public class EventDetailsFragment extends Fragment {
                                         "\n" + capacityText +
                                         "\n" + waitlistText
                         );
+                        if (waitlistCapacity != null) {
+                            db.collection("events").document(eventId)
+                                    .collection("waitlist")
+                                    .whereEqualTo("state", "waiting")
+                                    .get()
+                                    .addOnSuccessListener(snapshot -> {
+                                        int currentCount = snapshot.size();
+                                        if (currentCount >= waitlistCapacity) {
+                                            // Disable join button because waitlist is full
+                                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                                            buttonJoinWaitlist.setEnabled(false);
+                                            buttonJoinWaitlist.setBackgroundTintList(
+                                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                                            buttonJoinWaitlist.setTextColor(
+                                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                                        }
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Log.e("Firestore", "Failed to check waitlist capacity", e));
+                        }
+
+                        boolean isClosed = false;
+
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+                            Date today = new Date();
+
+                            Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
+                            Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
+
+                            if (closeDate != null && closeDate.before(today)) {
+                                // past event = closed
+                                isClosed = true;
+                            } else if (openDate != null && openDate.after(today)) {
+                                // not started yet → treat as open
+                                isClosed = false;
+                            } else {
+                                // ongoing or missing dates → treat as open (still available)
+                                isClosed = false;
+                            }
+                        } catch (Exception e) {
+                            Log.w("DateParse", "Failed to parse registration dates", e);
+                        }
+
+                        if (isClosed){
+                            buttonJoinWaitlist.setText("Registration is closed");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
+
+
     }
 
     // ========= live state =========
@@ -266,6 +325,7 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+
     private DocumentReference waitlistRef() {
         return db.collection("events").document(eventId)
                 .collection("waitlist").document(uid);
@@ -273,15 +333,43 @@ public class EventDetailsFragment extends Fragment {
 
     private void listenToWaitlistCount(String eventId) {
         if (eventId == null) return;
-        db.collection("events").document(eventId)
-                .collection("waitlist")
-                .whereEqualTo("state", "waiting")            // ← only count waiting
-                .addSnapshotListener((snapshots, e) -> {
-                    if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    int count = (snapshots == null) ? 0 : snapshots.size();
-                    textWaitlistCount.setText("Waitlist count: " + count);
-                });
+
+        DocumentReference eventRef = db.collection("events").document(eventId);
+
+        eventRef.addSnapshotListener((eventSnapshot, eventError) -> {
+            if (eventError != null || eventSnapshot == null || !eventSnapshot.exists()) {
+                Log.e("Firestore", "Error listening to event document", eventError);
+                return;
+            }
+
+            Long waitlistCapacity = eventSnapshot.getLong("waitlistCapacity");
+            if (waitlistCapacity == null) waitlistCapacity = 0L;
+
+            Long finalWaitlistCapacity = waitlistCapacity;
+            eventRef.collection("waitlist")
+                    .whereEqualTo("state", "waiting")
+                    .addSnapshotListener((waitlistSnapshot, waitlistError) -> {
+                        if (waitlistError != null) {
+                            Log.e("Firestore", "Error listening to waitlist", waitlistError);
+                            return;
+                        }
+
+                        int count = (waitlistSnapshot == null) ? 0 : waitlistSnapshot.size();
+                        textWaitlistCount.setText("Waitlist count: " + count);
+
+                        // If full → immediately disable button and show "WAITLIST FULL"
+                        if (count >= finalWaitlistCapacity && finalWaitlistCapacity > 0) {
+                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+                    });
+        });
     }
+
 
 
     // ========= UI helpers =========

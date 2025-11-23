@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
+
 import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
@@ -38,6 +39,23 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * AddEventFragment.java
+ *
+ * Purpose:
+ * Allows organizers to create or edit events. Users can input event details such as title,
+ * description, date, time, capacity, registration period, and upload an event image.
+ * Handles image uploads to Firebase Storage and event data storage in Firestore.
+ *
+ * Design Pattern:
+ * Acts as a Controller in the MVC pattern, managing interactions between the view (form inputs)
+ * and the model (Firestore and Firebase Storage).
+ *
+ * Notes:
+ * - Validates input fields before saving or updating events.
+ * - Handles both new event creation and editing existing events.
+ * - Displays simple error messages using Toasts for user feedback.
+ */
 public class AddEventFragment extends Fragment {
 
     private static final int IMAGE_PICK_REQUEST = 1001;
@@ -50,12 +68,19 @@ public class AddEventFragment extends Fragment {
     private FirebaseFirestore db;
     private StorageReference storageRef;
     private Uri selectedImageUri = null;
-    private String existingImageUrl = null; // for edit mode
-    private String eventId = null; // for edit mode
-
+    private String existingImageUrl = null; // used in edit mode
+    private String eventId = null; // indicates edit mode
     private FirebaseAuth mAuth;
 
-
+    /**
+     * Called when the fragment’s view is created.
+     * Initializes all UI elements, Firebase instances, and event listeners.
+     *
+     * @param inflater Used to inflate the fragment layout.
+     * @param container The parent view group.
+     * @param savedInstanceState The saved instance state, if available.
+     * @return The root view of the fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -68,7 +93,7 @@ public class AddEventFragment extends Fragment {
         storageRef = FirebaseStorage.getInstance().getReference();
         mAuth = FirebaseAuth.getInstance();
 
-        // Initialize views
+        // Initialize view elements
         eventTitle = view.findViewById(R.id.eventTitle);
         eventDescription = view.findViewById(R.id.eventDescription);
         eventLocation = view.findViewById(R.id.eventLocation);
@@ -85,20 +110,19 @@ public class AddEventFragment extends Fragment {
         buttonSelectImage = view.findViewById(R.id.buttonSelectImage);
         buttonRemoveImage = view.findViewById(R.id.buttonRemoveImage);
         eventImagePreview = view.findViewById(R.id.eventImagePreview);
-        ImageButton backButton = view.findViewById(R.id.back_button);
 
-        // Check if eventId passed → EDIT MODE
+        // Check if editing an existing event
         if (getArguments() != null && getArguments().containsKey("eventId")) {
             eventId = getArguments().getString("eventId");
             buttonSaveEvent.setText("Update Event");
             loadEventDataForEditing(eventId);
         }
 
-        // AM/PM buttons
+        // Set listeners for AM/PM buttons
         buttonAM.setOnClickListener(v -> selectAMPM("AM"));
         buttonPM.setOnClickListener(v -> selectAMPM("PM"));
 
-        // Image select/remove
+        // Image selection and removal
         buttonSelectImage.setOnClickListener(v -> openImagePicker());
         buttonRemoveImage.setOnClickListener(v -> {
             selectedImageUri = null;
@@ -107,7 +131,7 @@ public class AddEventFragment extends Fragment {
             Toast.makeText(getContext(), "Image removed", Toast.LENGTH_SHORT).show();
         });
 
-        // Save/Update button
+        // Save or update event
         buttonSaveEvent.setOnClickListener(v -> {
             if (validateInputs()) {
                 if (selectedImageUri != null) {
@@ -118,15 +142,14 @@ public class AddEventFragment extends Fragment {
             }
         });
 
-        // Back button
-        backButton.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Changes discarded", Toast.LENGTH_SHORT).show();
-            getParentFragmentManager().popBackStack();
-        });
-
         return view;
     }
 
+    /**
+     * Handles AM/PM button styling and value selection.
+     *
+     * @param selection The selected time period ("AM" or "PM").
+     */
     private void selectAMPM(String selection) {
         ampm = selection;
         if ("AM".equals(selection)) {
@@ -138,12 +161,18 @@ public class AddEventFragment extends Fragment {
         }
     }
 
+    /**
+     * Opens an image picker for the user to select an event image.
+     */
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         startActivityForResult(Intent.createChooser(intent, "Select Image"), IMAGE_PICK_REQUEST);
     }
 
+    /**
+     * Called when the user selects an image from the picker.
+     */
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -152,6 +181,10 @@ public class AddEventFragment extends Fragment {
             eventImagePreview.setImageURI(selectedImageUri);
         }
     }
+
+    /**
+     * Uploads the selected image to Firebase Storage, then saves or updates the event.
+     */
     private void uploadImageAndSaveEvent() {
         if (selectedImageUri == null) return;
 
@@ -160,20 +193,24 @@ public class AddEventFragment extends Fragment {
 
         imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl()
-                        .addOnSuccessListener(uri -> saveEvent(uri.toString())) // pass URL to saveEvent
+                        .addOnSuccessListener(uri -> saveEvent(uri.toString()))
                         .addOnFailureListener(e ->
                                 Toast.makeText(getContext(), "Failed to get image URL", Toast.LENGTH_SHORT).show()))
                 .addOnFailureListener(e ->
                         Toast.makeText(getContext(), "Image upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
+    /**
+     * Saves or updates event data in Firestore.
+     *
+     * @param imageUrl The URL of the uploaded image (if available).
+     */
     private void saveEvent(String imageUrl) {
-
         Map<String, Object> event = buildEventMap();
         if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
         if (eventId != null) {
-            // UPDATE existing event
+            // Update existing event
             db.collection("events").document(eventId)
                     .set(event)
                     .addOnSuccessListener(aVoid -> {
@@ -183,7 +220,7 @@ public class AddEventFragment extends Fragment {
                     .addOnFailureListener(e ->
                             Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
         } else {
-            // CREATE new event
+            // Create new event
             db.collection("events")
                     .add(event)
                     .addOnSuccessListener(documentReference -> {
@@ -195,6 +232,11 @@ public class AddEventFragment extends Fragment {
         }
     }
 
+    /**
+     * Loads event details from Firestore when editing an existing event.
+     *
+     * @param eventId The ID of the event to edit.
+     */
     private void loadEventDataForEditing(String eventId) {
         DocumentReference eventRef = db.collection("events").document(eventId);
         eventRef.get().addOnSuccessListener(document -> {
@@ -223,7 +265,7 @@ public class AddEventFragment extends Fragment {
                 registrationOpen.setText(document.getString("registrationOpen"));
                 registrationClose.setText(document.getString("registrationClose"));
 
-                // Load existing image URL if available
+                // Load image if exists
                 if (document.contains("eventPosterUrl")) {
                     existingImageUrl = document.getString("eventPosterUrl");
                     Glide.with(requireContext())
@@ -234,6 +276,11 @@ public class AddEventFragment extends Fragment {
         }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));
     }
 
+    /**
+     * Validates all event input fields before saving.
+     *
+     * @return true if all inputs are valid, false otherwise.
+     */
     private boolean validateInputs() {
         if (eventTitle.getText().toString().trim().isEmpty()) {
             eventTitle.setError("Required");
@@ -256,11 +303,11 @@ public class AddEventFragment extends Fragment {
 
         try {
             int capacity = Integer.parseInt(eventCapacity.getText().toString().trim());
-            if (capacity <= 0) throw new NumberFormatException("Capacity must be > 0");
+            if (capacity <= 0) throw new NumberFormatException();
             double price = Double.parseDouble(eventPrice.getText().toString().trim());
-            if (price < 0) throw new NumberFormatException("Price cannot be negative");
+            if (price < 0) throw new NumberFormatException();
             int waitlist = Integer.parseInt(waitlistCapacity.getText().toString().trim());
-            if (waitlist < 0) throw new NumberFormatException("Waitlist cannot be negative");
+            if (waitlist < 0) throw new NumberFormatException();
         } catch (NumberFormatException e) {
             Toast.makeText(getContext(), "Invalid numeric value", Toast.LENGTH_SHORT).show();
             return false;
@@ -297,15 +344,52 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Registration close must be before event date", Toast.LENGTH_SHORT).show();
                 return false;
             }
+            if (regOpen.before(now) || regClose.before(now)) {
+                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
+                return false;
+            }
 
         } catch (ParseException e) {
             Toast.makeText(getContext(), "Invalid date format", Toast.LENGTH_SHORT).show();
             return false;
         }
 
+        try {
+            String timeStr = eventTime.getText().toString().trim();
+
+            // Expecting format like "10:30"
+            String[] parts = timeStr.split(":");
+            if (parts.length != 2) {
+                Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+            int hour = Integer.parseInt(parts[0]);
+            int minute = Integer.parseInt(parts[1]);
+
+            if (hour < 1 || hour > 12) {
+                Toast.makeText(getContext(), "Hour must be between 1 and 12 for AM/PM format.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+            if (minute < 0 || minute >= 60) {
+                Toast.makeText(getContext(), "Minutes must be between 00 and 59.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
         return true;
     }
 
+    /**
+     * Builds a map of event data to be stored in Firestore.
+     *
+     * @return A map containing all event fields and values.
+     */
     private Map<String, Object> buildEventMap() {
         Map<String, Object> event = new HashMap<>();
         event.put("title", eventTitle.getText().toString().trim());

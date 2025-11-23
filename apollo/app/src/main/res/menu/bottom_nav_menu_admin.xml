@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/navigation_notifications"
+        android:icon="@drawable/bell_school"
+        android:title="@string/title_notifications" />
+
+    <item
+        android:id="@+id/navigation_events"
+        android:icon="@drawable/event"
+        android:title="Events" />
+
+    <item
+        android:id="@+id/navigation_profiles"
+        android:icon="@drawable/people"
+        android:title="@string/profiles" />
+
+    <item
+        android:id="@+id/navigation_images"
+        android:icon="@drawable/image_gallery"
+        android:title="@string/images" />
+
+</menu>

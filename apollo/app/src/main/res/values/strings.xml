@@ -31,4 +31,6 @@
     <string name="edit_event_button">Edit Event</string>
     <string name="send_lottery_button">Send Lottery</string>
     <string name="view_entrants_button">View Entrants</string>
+    <string name="images">Images</string>
+    <string name="profiles">Profiles</string>
 </resources>
