@@ -303,7 +303,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
      * @param eventName The name of the event.
      * @param winnersToPick The number of winners to select.
      */
-    private void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
+    public void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
         if (getContext() == null) return;
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
@@ -338,8 +338,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                     // Shuffle and pick winners
                     Collections.shuffle(candidates, new Random());
-                    int K = Math.min(winnersToPick, candidates.size());
-                    List<String> winners = candidates.subList(0, K);
+                    int numberOfWinner = Math.min(winnersToPick, candidates.size());
+                    List<String> winners = candidates.subList(0, numberOfWinner);
+                    List<String> losers = candidates.subList(numberOfWinner, candidates.size());
 
                     // Losers = all candidates who weren't picked
                     List<String> losers = new ArrayList<>(candidates);
@@ -347,23 +348,40 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                     WriteBatch batch = fdb.batch();
 
-                    // --- WINNERS: invite + win notification + update waitlist state ---
+                    // Process winners
                     for (String uid : winners) {
-                        // Create invite entry
+
+                        // 1. Log winner to lotteryResults/winners
+                        DocumentReference lotteryWinnerRef = fdb.collection("events")
+                                .document(eventId)
+                                .collection("lotteryResults")
+                                .document("winners")
+                                .collection("users")
+                                .document(uid);
+
+                        Map<String, Object> winnerLog = new HashMap<>();
+                        winnerLog.put("uid", uid);
+                        winnerLog.put("status", "invited");
+                        winnerLog.put("timestamp", FieldValue.serverTimestamp());
+                        batch.set(lotteryWinnerRef, winnerLog);
+
+                        // 2. Create invite entry (IMPORTANT!!)
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
                                 .document(uid);
+
                         Map<String, Object> invite = new HashMap<>();
                         invite.put("status", "invited");
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // Notification: lottery_win
+                        // 3. Send notification to user
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
                                 .document();
+
                         Map<String, Object> notif = new HashMap<>();
                         notif.put("type", "lottery_win");
                         notif.put("eventId", eventId);
@@ -373,47 +391,68 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // Update waitlist state -> invited
+                        // 4. Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
                                 .document(uid);
+
                         Map<String, Object> wlUpdate = new HashMap<>();
                         wlUpdate.put("state", "invited");
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
                     }
 
-                    // --- LOSERS: lose notification, but keep them in 'waiting' state ---
+
+                    // Process losers
                     for (String uid : losers) {
+
+                        // 1. Log loser to lotteryResults/losers
+                        DocumentReference lotteryLoserRef = fdb.collection("events")
+                                .document(eventId)
+                                .collection("lotteryResults")
+                                .document("losers")
+                                .collection("users")
+                                .document(uid);
+
+                        Map<String, Object> loserLog = new HashMap<>();
+                        loserLog.put("uid", uid);
+                        loserLog.put("status", "rejected");
+                        loserLog.put("timestamp", FieldValue.serverTimestamp());
+                        batch.set(lotteryLoserRef, loserLog);
+
+                        // 2. Send notification to loser
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
                                 .document();
 
-                        Map<String, Object> loseNotif = new HashMap<>();
-                        loseNotif.put("type", "lottery_lose");
-                        loseNotif.put("eventId", eventId);
-                        loseNotif.put("title", "You were not selected this time");
-                        // Important: clarify they remain on the waitlist
-                        loseNotif.put("message",
-                                "You were not selected in the lottery for " + eventName +
-                                        " event this time, but you are still on the waitlist for future openings.");
-                        loseNotif.put("createdAt", FieldValue.serverTimestamp());
-                        loseNotif.put("read", false);
+                        Map<String, Object> notif = new HashMap<>();
+                        notif.put("type", "lottery_loss");
+                        notif.put("eventId", eventId);
+                        notif.put("title", "Not Selected This Time");
+                        notif.put("message", "You were not selected in the lottery for " + eventName + ".");
+                        notif.put("createdAt", FieldValue.serverTimestamp());
+                        notif.put("read", false);
+                        batch.set(notifRef, notif);
 
-                        batch.set(notifRef, loseNotif);
-                        // NOTE: we do NOT touch their waitlist "state" here,
-                        // so it stays "waiting" for another chance.
+                        // 3. Update waitlist entry
+                        DocumentReference wlRef = fdb.collection("events")
+                                .document(eventId)
+                                .collection("waitlist")
+                                .document(uid);
+
+                        Map<String, Object> wlUpdate = new HashMap<>();
+                        wlUpdate.put("state", "rejected");
+                        wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
+                        batch.set(wlRef, wlUpdate, SetOptions.merge());
                     }
 
+
+
                     batch.commit()
-                            .addOnSuccessListener(u -> {
-                                Toast.makeText(getContext(),
-                                        "Lottery sent to " + K + " entrant(s).", Toast.LENGTH_SHORT).show();
-                                // Do NOT enable Draw Replacement here.
-                                // It will be enabled only when some invite's status becomes "declined".
-                            })
+                            .addOnSuccessListener(u ->
+                                    Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show())
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Batch commit failed", e);
                                 Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -474,4 +513,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
         closeButton.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }
+    public void setDb(FirebaseFirestore firestore) {
+        this.db = firestore;
+    }
+
 }

@@ -344,10 +344,10 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Registration close must be before event date", Toast.LENGTH_SHORT).show();
                 return false;
             }
-            if (regOpen.before(now) || regClose.before(now)) {
-                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
-                return false;
-            }
+//            if (regOpen.before(now) || regClose.before(now)) {
+//                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
+//                return false;
+//            }
 
         } catch (ParseException e) {
             Toast.makeText(getContext(), "Invalid date format", Toast.LENGTH_SHORT).show();
