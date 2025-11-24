@@ -11,12 +11,14 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 import com.example.apollo.R;
@@ -71,6 +73,8 @@ public class AddEventFragment extends Fragment {
     private String existingImageUrl = null; // used in edit mode
     private String eventId = null; // indicates edit mode
     private FirebaseAuth mAuth;
+    private Switch switchButton;
+
 
     /**
      * Called when the fragment’s view is created.
@@ -110,7 +114,10 @@ public class AddEventFragment extends Fragment {
         buttonSelectImage = view.findViewById(R.id.buttonSelectImage);
         buttonRemoveImage = view.findViewById(R.id.buttonRemoveImage);
         eventImagePreview = view.findViewById(R.id.eventImagePreview);
-        ImageButton backButton = view.findViewById(R.id.back_button);
+        switchButton = view.findViewById(R.id.switchButton);
+
+
+
 
         // Check if editing an existing event
         if (getArguments() != null && getArguments().containsKey("eventId")) {
@@ -132,6 +139,13 @@ public class AddEventFragment extends Fragment {
             Toast.makeText(getContext(), "Image removed", Toast.LENGTH_SHORT).show();
         });
 
+        switchButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked)
+                Toast.makeText(getContext(), "Geolocation on", Toast.LENGTH_SHORT).show();
+            else
+                Toast.makeText(getContext(), "Geolocation off", Toast.LENGTH_SHORT).show();
+                });
+
         // Save or update event
         buttonSaveEvent.setOnClickListener(v -> {
             if (validateInputs()) {
@@ -141,12 +155,6 @@ public class AddEventFragment extends Fragment {
                     saveEvent(existingImageUrl);
                 }
             }
-        });
-
-        // Back button returns to previous screen
-        backButton.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Changes discarded", Toast.LENGTH_SHORT).show();
-            getParentFragmentManager().popBackStack();
         });
 
         return view;
@@ -307,18 +315,6 @@ public class AddEventFragment extends Fragment {
             Toast.makeText(getContext(), "Enter event date, time, and AM/PM", Toast.LENGTH_SHORT).show();
             return false;
         }
-        try {
-            String timeStr = eventTime.getText().toString().trim();
-            int hour = Integer.parseInt(timeStr.split(":")[0]);
-
-            if (hour < 1 || hour > 12) {
-                Toast.makeText(getContext(), "Time must be between 1 and 12 for AM/PM format", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-        } catch (Exception e) {
-            Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
-            return false;
-        }
 
         try {
             int capacity = Integer.parseInt(eventCapacity.getText().toString().trim());
@@ -326,8 +322,7 @@ public class AddEventFragment extends Fragment {
             double price = Double.parseDouble(eventPrice.getText().toString().trim());
             if (price < 0) throw new NumberFormatException();
             int waitlist = Integer.parseInt(waitlistCapacity.getText().toString().trim());
-            if (waitlist < 0) throw new NumberFormatException("Waitlist cannot be negative");
-            if (waitlist < capacity) throw new NumberFormatException("Waitlist must be >= capacity");
+            if (waitlist < 0) throw new NumberFormatException();
         } catch (NumberFormatException e) {
             Toast.makeText(getContext(), "Invalid numeric value", Toast.LENGTH_SHORT).show();
             return false;
@@ -356,11 +351,6 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Event date/time cannot be in the past", Toast.LENGTH_SHORT).show();
                 return false;
             }
-            if (regOpen.before(now) || regClose.before(now)) {
-                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
             if (regOpen.after(regClose)) {
                 Toast.makeText(getContext(), "Registration open must be before close", Toast.LENGTH_SHORT).show();
                 return false;
@@ -369,9 +359,41 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Registration close must be before event date", Toast.LENGTH_SHORT).show();
                 return false;
             }
+//            if (regOpen.before(now) || regClose.before(now)) {
+//                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
+//                return false;
+//            }
 
         } catch (ParseException e) {
             Toast.makeText(getContext(), "Invalid date format", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        try {
+            String timeStr = eventTime.getText().toString().trim();
+
+            // Expecting format like "10:30"
+            String[] parts = timeStr.split(":");
+            if (parts.length != 2) {
+                Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+            int hour = Integer.parseInt(parts[0]);
+            int minute = Integer.parseInt(parts[1]);
+
+            if (hour < 1 || hour > 12) {
+                Toast.makeText(getContext(), "Hour must be between 1 and 12 for AM/PM format.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+            if (minute < 0 || minute >= 60) {
+                Toast.makeText(getContext(), "Minutes must be between 00 and 59.", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
             return false;
         }
 
@@ -396,6 +418,7 @@ public class AddEventFragment extends Fragment {
         event.put("registrationOpen", registrationOpen.getText().toString().trim());
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
+        event.put("geolocation", switchButton.isChecked());
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {

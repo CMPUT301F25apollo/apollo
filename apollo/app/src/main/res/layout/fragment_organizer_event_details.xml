@@ -1,40 +1,30 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <ScrollView
-    android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white"
-    android:fillViewport="true"
-    android:paddingBottom="80dp">
+    android:fillViewport="true">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:paddingHorizontal="20dp"
-        android:paddingTop="32dp">
-
+        android:paddingTop="32dp"
+        android:paddingBottom="80dp">
 
         <!-- Card container (rounded background of the event) -->
-
         <LinearLayout
             android:id="@+id/eventCard"
-            android:layout_width="355dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="40dp"
             android:background="@drawable/event_card_background"
             android:elevation="2dp"
             android:orientation="vertical"
-            android:padding="20dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.76">
+            android:padding="20dp">
 
             <ImageView
                 android:id="@+id/eventPosterImage"
@@ -42,9 +32,7 @@
                 android:layout_height="220dp"
                 android:background="@color/black"
                 android:contentDescription="@string/event_poster"
-                android:scaleType="centerCrop"
-                tools:layout_editor_absoluteX="-8dp"
-                tools:layout_editor_absoluteY="68dp" />
+                android:scaleType="centerCrop" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -93,7 +81,7 @@
             <!-- Event summary details -->
             <TextView
                 android:id="@+id/textEventSummary"
-                android:layout_width="326dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 android:lineSpacingExtra="4dp"
@@ -101,22 +89,16 @@
                 android:textColor="@color/black"
                 android:textSize="14sp"
                 android:textStyle="bold" />
-
-
         </LinearLayout>
 
+
         <LinearLayout
+            android:id="@+id/organizerButtonRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
             android:orientation="horizontal"
-            android:weightSum="3"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/eventCard"
-            app:layout_constraintVertical_bias="0.846">
+            android:gravity="center"
+            android:weightSum="3">
 
             <Button
                 android:id="@+id/buttonEditEvent"
@@ -124,11 +106,10 @@
                 android:layout_height="55dp"
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
-                android:gravity="center"
                 android:text="@string/edit_event_button"
-                android:textColor="@color/white"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/buttonSendLottery"
@@ -138,11 +119,10 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
-                android:gravity="center"
                 android:text="@string/send_lottery_button"
                 android:textColor="@android:color/white"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/buttonViewParticipants"
@@ -150,15 +130,23 @@
                 android:layout_height="55dp"
                 android:layout_weight="1"
                 android:backgroundTint="@color/black"
-                android:gravity="center"
                 android:text="@string/view_entrants_button"
                 android:textColor="@android:color/white"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:textSize="12sp" />
         </LinearLayout>
 
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+        <Button
+            android:id="@+id/buttonDrawReplacement"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/black"
+            android:text="Draw Replacement"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:textSize="12sp" />
 
-</RelativeLayout>
+    </LinearLayout>
+</ScrollView>

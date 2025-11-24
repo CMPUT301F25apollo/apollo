@@ -201,6 +201,12 @@
                     android:inputType="date" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <Switch
+                android:id="@+id/switchButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Locate user with geolocation" />
+
             <!-- Image -->
             <ImageView
                 android:id="@+id/eventImagePreview"

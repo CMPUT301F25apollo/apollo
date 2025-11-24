@@ -50,7 +50,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
 
@@ -72,11 +75,6 @@ public class EventDetailsFragment extends Fragment {
     // keep latest snapshots to avoid races
     private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
 
-
-
-    /**
-     * Sets up the view, loads event details, and controls join/leave visibility.
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -88,6 +86,10 @@ public class EventDetailsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
+
+
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
         textEventSummary = view.findViewById(R.id.textEventSummary);
@@ -96,22 +98,14 @@ public class EventDetailsFragment extends Fragment {
         textWaitlistCount = view.findViewById(R.id.textWaitlistCount);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
 
-        boolean isClosed = false;
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
-            isClosed = getArguments().getBoolean("isClosed", false);
             loadEventDetails(eventId);
             listenToWaitlistCount(eventId);
         }
 
-        // 👇 Hide button if event is closed
-        if (isClosed) {
-            buttonJoinWaitlist.setVisibility(View.GONE);
-            loginText.setVisibility(View.GONE);
-            return view;
-        }
-
         FirebaseUser currentUser = mAuth.getCurrentUser();
+
         if (currentUser == null) {
             loginText.setVisibility(View.VISIBLE);
             buttonJoinWaitlist.setOnClickListener(v ->
@@ -125,17 +119,13 @@ public class EventDetailsFragment extends Fragment {
         } else {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
-            observeUserEventState();
-            wireJoinLeaveAction();
+            observeUserEventState();   // live state from invites/registrations/waitlist
+            wireJoinLeaveAction();     // join/leave with extra server-side checks
         }
 
         return view;
     }
 
-    /**
-     * gets event data from Firestore and updates all event info fields.
-     * @param eventId The ID of the event to load.
-     */
     private void loadEventDetails(String eventId) {
         if (eventId == null) return;
         db.collection("events").document(eventId)
@@ -163,13 +153,12 @@ public class EventDetailsFragment extends Fragment {
                         String registrationPeriod = (registrationOpen != null && registrationClose != null)
                                 ? registrationOpen + " - " + registrationClose
                                 : "Not specified";
-                        String capacityText = (eventCapacity != null) ? "Capacity: " + eventCapacity : "Capacity: N/A";
-                        String waitlistText = (waitlistCapacity != null) ? "Waitlist: " + waitlistCapacity : "Waitlist: N/A";
+                        String capacityText = (eventCapacity != null) ? "Event Capacity: " + eventCapacity : "Event Capacity:  N/A";
+                        String waitlistText = (waitlistCapacity != null) ? "Waitlist Capacity: " + waitlistCapacity : "Waitlist Capacity: N/A";
                         String dateText = (date != null) ? date : "N/A";
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
-
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
@@ -181,21 +170,74 @@ public class EventDetailsFragment extends Fragment {
                                         "\n" + capacityText +
                                         "\n" + waitlistText
                         );
+                        if (waitlistCapacity != null) {
+                            db.collection("events").document(eventId)
+                                    .collection("waitlist")
+                                    .whereEqualTo("state", "waiting")
+                                    .get()
+                                    .addOnSuccessListener(snapshot -> {
+                                        int currentCount = snapshot.size();
+                                        if (currentCount >= waitlistCapacity) {
+                                            // Disable join button because waitlist is full
+                                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                                            buttonJoinWaitlist.setEnabled(false);
+                                            buttonJoinWaitlist.setBackgroundTintList(
+                                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                                            buttonJoinWaitlist.setTextColor(
+                                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                                        }
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Log.e("Firestore", "Failed to check waitlist capacity", e));
+                        }
+
+                        boolean isClosed = false;
+
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+                            Date today = new Date();
+
+                            Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
+                            Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
+
+                            if (closeDate != null && closeDate.before(today)) {
+                                // past event = closed
+                                isClosed = true;
+                            } else if (openDate != null && openDate.after(today)) {
+                                // not started yet → treat as open
+                                isClosed = false;
+                            } else {
+                                // ongoing or missing dates → treat as open (still available)
+                                isClosed = false;
+                            }
+                        } catch (Exception e) {
+                            Log.w("DateParse", "Failed to parse registration dates", e);
+                        }
+
+                        if (isClosed){
+                            buttonJoinWaitlist.setText("Registration is closed");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
+
+
     }
 
     // ========= live state =========
-    /**
-     * Sets up listeners to track the user's registration/invite/waitlist status live.
-     */
     private void observeUserEventState() {
         if (eventId == null || uid == null) return;
 
-        // registrations/{uid} .. REGISTERED wins highest priority
+        // 1) registrations/{uid} => REGISTERED wins highest priority
         db.collection("events").document(eventId)
                 .collection("registrations").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -203,7 +245,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(registered, /*invited*/null, /*waiting*/null);
                 });
 
-        // invites/{uid} .. INVITED second
+        // 2) invites/{uid} => INVITED second
         db.collection("events").document(eventId)
                 .collection("invites").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -211,7 +253,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(/*registered*/null, invited, /*waiting*/null);
                 });
 
-        // waitlist/{uid} .. WAITING otherwise
+        // 3) waitlist/{uid} => WAITING otherwise
         waitlistRef().addSnapshotListener((doc, e) -> {
             boolean waiting = (doc != null && doc.exists() &&
                     "waiting".equals(doc.getString("state")));
@@ -220,10 +262,12 @@ public class EventDetailsFragment extends Fragment {
     }
 
     // keep the latest view of each signal and then choose the priority
-    /**
-     * Updates UI state when Firestore listener data changes.
-     */
+
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
+        if (!isAdded() || getContext() == null || buttonJoinWaitlist == null) {
+            Log.w("EventDetailsFragment", "recalcState: fragment not attached, skipping");
+            return;
+        }
         if (registered != null) hasRegistered = registered;
         if (invited != null)   hasInvited = invited;
         if (waiting != null)   hasWaiting = waiting;
@@ -242,10 +286,6 @@ public class EventDetailsFragment extends Fragment {
             renderButton();
         }
     }
-
-    /**
-     * Handles join/leave button logic for the waitlist.
-     */
 
     // ========= join/leave logic (unchanged behavior for WAITING) =========
     private void wireJoinLeaveAction() {
@@ -297,45 +337,89 @@ public class EventDetailsFragment extends Fragment {
 
     private void listenToWaitlistCount(String eventId) {
         if (eventId == null) return;
-        db.collection("events").document(eventId)
-                .collection("waitlist")
-                .whereEqualTo("state", "waiting")            // ← only count waiting
-                .addSnapshotListener((snapshots, e) -> {
-                    if (e != null) { Log.e("Firestore", "Listen failed: ", e); return; }
-                    int count = (snapshots == null) ? 0 : snapshots.size();
-                    textWaitlistCount.setText("Waitlist count: " + count);
-                });
+
+        DocumentReference eventRef = db.collection("events").document(eventId);
+
+        eventRef.addSnapshotListener((eventSnapshot, eventError) -> {
+            if (eventError != null || eventSnapshot == null || !eventSnapshot.exists()) {
+                Log.e("Firestore", "Error listening to event document", eventError);
+                return;
+            }
+
+            Long waitlistCapacity = eventSnapshot.getLong("waitlistCapacity");
+            if (waitlistCapacity == null) waitlistCapacity = 0L;
+
+            Long finalWaitlistCapacity = waitlistCapacity;
+            eventRef.collection("waitlist")
+                    .whereEqualTo("state", "waiting")
+                    .addSnapshotListener((waitlistSnapshot, waitlistError) -> {
+                        if (waitlistError != null) {
+                            Log.e("Firestore", "Error listening to waitlist", waitlistError);
+                            return;
+                        }
+
+
+                        if (!isAdded() || getContext() == null) {
+                            Log.w("EventDetailsFragment", "waitlist listener: fragment not attached, skipping UI update");
+                            return;
+                        }
+
+                        android.content.Context ctx = getContext();
+
+                        int count = (waitlistSnapshot == null) ? 0 : waitlistSnapshot.size();
+                        textWaitlistCount.setText("Waitlist count: " + count);
+
+                        // If full → immediately disable button and show "WAITLIST FULL"
+                        if (count >= finalWaitlistCapacity && finalWaitlistCapacity > 0) {
+                            buttonJoinWaitlist.setText("WAITLIST FULL");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(ctx, android.R.color.white));
+                        }
+                    });
+        });
     }
+
 
 
     // ========= UI helpers =========
     private void renderButton() {
+
+        if (!isAdded() || getContext() == null) {
+            Log.w("EventDetailsFragment", "renderButton: fragment not attached, skipping");
+            return;
+        }
+
+        android.content.Context ctx = getContext();
+
         switch (state) {
             case REGISTERED:
                 buttonJoinWaitlist.setText("REGISTERED");
                 buttonJoinWaitlist.setEnabled(false);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                        ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case INVITED:
                 buttonJoinWaitlist.setText("INVITED — CHECK NOTIFICATIONS");
                 buttonJoinWaitlist.setEnabled(false);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                        ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case WAITING:
                 buttonJoinWaitlist.setText("LEAVE WAITLIST");
                 buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.black));
+                        ContextCompat.getColorStateList(ctx, android.R.color.black));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case NONE:
@@ -343,11 +427,12 @@ public class EventDetailsFragment extends Fragment {
                 buttonJoinWaitlist.setText("JOIN WAITLIST");
                 buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), R.color.lightblue));
+                        ContextCompat.getColorStateList(ctx, R.color.lightblue));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.black));
+                        ContextCompat.getColor(ctx, android.R.color.black));
         }
     }
+
 
     private void setLoading(boolean loading) {
         buttonJoinWaitlist.setEnabled(!loading);
