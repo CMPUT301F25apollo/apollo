@@ -11,12 +11,14 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 import com.example.apollo.R;
@@ -71,6 +73,8 @@ public class AddEventFragment extends Fragment {
     private String existingImageUrl = null; // used in edit mode
     private String eventId = null; // indicates edit mode
     private FirebaseAuth mAuth;
+    private Switch switchButton;
+
 
     /**
      * Called when the fragment’s view is created.
@@ -110,6 +114,10 @@ public class AddEventFragment extends Fragment {
         buttonSelectImage = view.findViewById(R.id.buttonSelectImage);
         buttonRemoveImage = view.findViewById(R.id.buttonRemoveImage);
         eventImagePreview = view.findViewById(R.id.eventImagePreview);
+        switchButton = view.findViewById(R.id.switchButton);
+
+
+
 
         // Check if editing an existing event
         if (getArguments() != null && getArguments().containsKey("eventId")) {
@@ -130,6 +138,13 @@ public class AddEventFragment extends Fragment {
             eventImagePreview.setImageResource(android.R.color.transparent);
             Toast.makeText(getContext(), "Image removed", Toast.LENGTH_SHORT).show();
         });
+
+        switchButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked)
+                Toast.makeText(getContext(), "Geolocation on", Toast.LENGTH_SHORT).show();
+            else
+                Toast.makeText(getContext(), "Geolocation off", Toast.LENGTH_SHORT).show();
+                });
 
         // Save or update event
         buttonSaveEvent.setOnClickListener(v -> {
@@ -403,6 +418,7 @@ public class AddEventFragment extends Fragment {
         event.put("registrationOpen", registrationOpen.getText().toString().trim());
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
+        event.put("geolocation", switchButton.isChecked());
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
