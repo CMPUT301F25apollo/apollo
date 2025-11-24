@@ -264,6 +264,10 @@ public class EventDetailsFragment extends Fragment {
     // keep the latest view of each signal and then choose the priority
 
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
+        if (!isAdded() || getContext() == null || buttonJoinWaitlist == null) {
+            Log.w("EventDetailsFragment", "recalcState: fragment not attached, skipping");
+            return;
+        }
         if (registered != null) hasRegistered = registered;
         if (invited != null)   hasInvited = invited;
         if (waiting != null)   hasWaiting = waiting;
@@ -354,6 +358,14 @@ public class EventDetailsFragment extends Fragment {
                             return;
                         }
 
+
+                        if (!isAdded() || getContext() == null) {
+                            Log.w("EventDetailsFragment", "waitlist listener: fragment not attached, skipping UI update");
+                            return;
+                        }
+
+                        android.content.Context ctx = getContext();
+
                         int count = (waitlistSnapshot == null) ? 0 : waitlistSnapshot.size();
                         textWaitlistCount.setText("Waitlist count: " + count);
 
@@ -362,9 +374,9 @@ public class EventDetailsFragment extends Fragment {
                             buttonJoinWaitlist.setText("WAITLIST FULL");
                             buttonJoinWaitlist.setEnabled(false);
                             buttonJoinWaitlist.setBackgroundTintList(
-                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                                    ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
                             buttonJoinWaitlist.setTextColor(
-                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                                    ContextCompat.getColor(ctx, android.R.color.white));
                         }
                     });
         });
@@ -374,32 +386,40 @@ public class EventDetailsFragment extends Fragment {
 
     // ========= UI helpers =========
     private void renderButton() {
+
+        if (!isAdded() || getContext() == null) {
+            Log.w("EventDetailsFragment", "renderButton: fragment not attached, skipping");
+            return;
+        }
+
+        android.content.Context ctx = getContext();
+
         switch (state) {
             case REGISTERED:
                 buttonJoinWaitlist.setText("REGISTERED");
                 buttonJoinWaitlist.setEnabled(false);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                        ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case INVITED:
                 buttonJoinWaitlist.setText("INVITED — CHECK NOTIFICATIONS");
                 buttonJoinWaitlist.setEnabled(false);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                        ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case WAITING:
                 buttonJoinWaitlist.setText("LEAVE WAITLIST");
                 buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), android.R.color.black));
+                        ContextCompat.getColorStateList(ctx, android.R.color.black));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
             case NONE:
@@ -407,11 +427,12 @@ public class EventDetailsFragment extends Fragment {
                 buttonJoinWaitlist.setText("JOIN WAITLIST");
                 buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(requireContext(), R.color.lightblue));
+                        ContextCompat.getColorStateList(ctx, R.color.lightblue));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(requireContext(), android.R.color.black));
+                        ContextCompat.getColor(ctx, android.R.color.black));
         }
     }
+
 
     private void setLoading(boolean loading) {
         buttonJoinWaitlist.setEnabled(!loading);
