@@ -340,7 +340,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     Collections.shuffle(candidates, new Random());
                     int numberOfWinner = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, numberOfWinner);
-                    List<String> losers = candidates.subList(numberOfWinner, candidates.size());
+//                    List<String> losers = candidates.subList(numberOfWinner, candidates.size());
 
                     // Losers = all candidates who weren't picked
                     List<String> losers = new ArrayList<>(candidates);
@@ -365,7 +365,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         winnerLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryWinnerRef, winnerLog);
 
-                        // 2. Create invite entry (IMPORTANT!!)
+
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
@@ -404,7 +404,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     }
 
 
-                    // Process losers
+// Process losers
                     for (String uid : losers) {
 
                         // 1. Log loser to lotteryResults/losers
@@ -447,6 +447,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
                     }
+
 
 
 
