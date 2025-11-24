@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
@@ -57,7 +58,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
-    private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
+    private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants, buttonDrawReplacement;
+    private boolean canDrawReplacement = false;
     private ImageView eventPosterImage;
     private String eventId;
     private String eventName = "Event";
@@ -90,20 +92,33 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
+        buttonDrawReplacement = view.findViewById(R.id.buttonDrawReplacement);
+        updateDrawReplacementButtonEnabled(false);
+
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadEventDetails(eventId);
         }
 
-        // Navigate to edit event screen
-        buttonEditEvent.setOnClickListener(v -> {
-            Bundle bundle = new Bundle();
-            bundle.putString("eventId", eventId);
-            NavController navController = NavHostFragment.findNavController(this);
-            navController.navigate(R.id.navigation_organizer_add_event, bundle);
-        });
+        if (eventId != null && !eventId.isEmpty()) {
+            db.collection("events")
+                    .document(eventId)
+                    .collection("invites")
+                    .whereEqualTo("status", "declined")   // only declined invites
+                    .addSnapshotListener((snap, e) -> {
+                        if (e != null) {
+                            Log.e(TAG, "Error listening for declined invites", e);
+                            updateDrawReplacementButtonEnabled(false);
+                            return;
+                        }
 
+                        boolean hasDeclined = (snap != null && !snap.isEmpty());
+                        updateDrawReplacementButtonEnabled(hasDeclined);
+                    });
+        }
+
+        // Navigate to edit event screen
         // Prompt organizer to input number of winners, then run lottery
         buttonSendLottery.setOnClickListener(v -> {
             if (eventId == null || eventId.isEmpty()) {
@@ -112,6 +127,20 @@ public class OrganizerEventDetailsFragment extends Fragment {
             }
             askForWinnerCountAndRunLottery(eventId, eventName);
         });
+        buttonDrawReplacement.setOnClickListener(v -> {
+            if (!canDrawReplacement) {
+                Toast.makeText(getContext(),
+                        "You can only draw replacements after a selected entrant declines.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (eventId == null || eventId.isEmpty()) {
+                Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            askForReplacementCountAndRunLottery(eventId, eventName);
+        });
+
 
         // Navigate to waitlist participant screen
         buttonViewParticipants.setOnClickListener(v -> {
@@ -220,6 +249,53 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .show();
     }
 
+    private void updateDrawReplacementButtonEnabled(boolean enabled) {
+        canDrawReplacement = enabled;
+        if (!isAdded() || buttonDrawReplacement == null || getContext() == null) return;
+
+        int bgColor = enabled ? android.R.color.black : android.R.color.darker_gray;
+        int textColor = android.R.color.white;
+
+        buttonDrawReplacement.setEnabled(enabled);
+        buttonDrawReplacement.setBackgroundTintList(
+                ContextCompat.getColorStateList(requireContext(), bgColor));
+        buttonDrawReplacement.setTextColor(
+                ContextCompat.getColor(requireContext(), textColor));
+    }
+
+
+    /**
+     * Prompts the organizer to enter how many replacement winners to select.
+     * Reuses the same lottery logic, but is conceptually for filling spots
+     * when invited users decline or cancel.
+     */
+    private void askForReplacementCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
+        if (getContext() == null) return;
+
+        EditText input = new EditText(requireContext());
+        input.setHint("Number of replacements");
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Draw Replacement")
+                .setMessage("How many replacement entrants should be selected?")
+                .setView(input)
+                .setPositiveButton("Draw", (dlg, which) -> {
+                    String s = (input.getText() == null) ? "" : input.getText().toString().trim();
+                    int k = 0;
+                    try { k = Integer.parseInt(s); } catch (Exception ignore) {}
+                    if (k <= 0) {
+                        Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // Reuse the same lottery logic
+                    runLottery(eventId, eventName, k);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+
     /**
      * Selects a random number of winners from the event’s waitlist and sends them notifications.
      *
@@ -252,6 +328,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         if (!TextUtils.isEmpty(uid)) candidates.add(uid);
                     }
 
+                    // Remove duplicates just in case
                     candidates = new ArrayList<>(new java.util.LinkedHashSet<>(candidates));
 
                     if (candidates.isEmpty()) {
@@ -259,10 +336,15 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         return;
                     }
 
+                    // Shuffle and pick winners
                     Collections.shuffle(candidates, new Random());
                     int numberOfWinner = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, numberOfWinner);
                     List<String> losers = candidates.subList(numberOfWinner, candidates.size());
+
+                    // Losers = all candidates who weren't picked
+                    List<String> losers = new ArrayList<>(candidates);
+                    losers.removeAll(winners);
 
                     WriteBatch batch = fdb.batch();
 
@@ -375,8 +457,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 Log.e(TAG, "Batch commit failed", e);
                                 Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                             });
+
+
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     /**
