@@ -1,6 +1,6 @@
 
 
-package com.example.apollo.ui.home;
+package com.example.apollo.ui.entrant.home;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;

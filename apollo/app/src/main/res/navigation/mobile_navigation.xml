@@ -8,7 +8,7 @@
     <!-- 🏠 Home -->
     <fragment
         android:id="@+id/navigation_home"
-        android:name="com.example.apollo.ui.home.HomeFragment"
+        android:name="com.example.apollo.ui.entrant.home.HomeFragment"
         android:label="@string/title_home"
         tools:layout="@layout/fragment_home">
 
@@ -30,14 +30,14 @@
     <!-- 🔍 Filter -->
     <fragment
         android:id="@+id/navigation_filter"
-        android:name="com.example.apollo.ui.home.FilterFragment"
+        android:name="com.example.apollo.ui.entrant.home.FilterFragment"
         android:label="Filter"
         tools:layout="@layout/fragment_filter" />
 
     <!-- 📄 Event Details -->
     <fragment
         android:id="@+id/navigation_event_details"
-        android:name="com.example.apollo.ui.home.EventDetailsFragment"
+        android:name="com.example.apollo.ui.entrant.home.EventDetailsFragment"
         android:label="Event Details"
         tools:layout="@layout/fragment_event_details">
 
@@ -50,14 +50,14 @@
     <!-- 🔔 Notifications -->
     <fragment
         android:id="@+id/navigation_notifications"
-        android:name="com.example.apollo.ui.notifications.NotificationsFragment"
+        android:name="com.example.apollo.ui.entrant.notifications.NotificationsFragment"
         android:label="@string/title_notifications"
         tools:layout="@layout/fragment_notifications" />
 
     <!-- 👤 Profile -->
     <fragment
         android:id="@+id/navigation_profile"
-        android:name="com.example.apollo.ui.profile.ProfileFragment"
+        android:name="com.example.apollo.ui.entrant.profile.ProfileFragment"
         android:label="@string/title_profile"
         tools:layout="@layout/fragment_profile">
 
@@ -70,14 +70,14 @@
     <!-- ⚙️ Settings -->
     <fragment
         android:id="@+id/navigation_settings"
-        android:name="com.example.apollo.ui.profile.SettingsFragment"
+        android:name="com.example.apollo.ui.entrant.profile.SettingsFragment"
         android:label="Settings"
         tools:layout="@layout/fragment_settings" />
 
 <!--    QR Code Scanner-->
     <fragment
         android:id="@+id/qrScannerFragment"
-        android:name="com.example.apollo.ui.home.QrScannerFragment"
+        android:name="com.example.apollo.ui.entrant.home.QrScannerFragment"
         android:label="QR Scanner">
         <action
             android:id="@+id/action_qrScannerFragment_to_navigation_event_details"

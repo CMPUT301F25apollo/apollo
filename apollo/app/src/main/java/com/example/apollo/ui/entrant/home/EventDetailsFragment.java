@@ -18,7 +18,7 @@
  * - Minimal error handling for failed Firestore operations
  * - Could improve visuals or loading states for async actions
  */
-package com.example.apollo.ui.home;
+package com.example.apollo.ui.entrant.home;
 
 import android.Manifest;
 import android.content.Intent;

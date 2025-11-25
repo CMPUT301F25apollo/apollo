@@ -1,4 +1,4 @@
-package com.example.apollo.ui.notifications;
+package com.example.apollo.ui.entrant.notifications;
 
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
