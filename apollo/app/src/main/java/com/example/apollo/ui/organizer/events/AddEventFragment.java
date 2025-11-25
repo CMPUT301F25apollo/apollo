@@ -29,12 +29,14 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
@@ -227,7 +229,7 @@ public class AddEventFragment extends Fragment {
         if (eventId != null) {
             // Update existing event
             db.collection("events").document(eventId)
-                    .set(event)
+                    .set(event, SetOptions.merge())
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(getContext(), "Event updated successfully!", Toast.LENGTH_SHORT).show();
                         getParentFragmentManager().popBackStack();
@@ -419,6 +421,9 @@ public class AddEventFragment extends Fragment {
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
         event.put("geolocation", switchButton.isChecked());
+        event.put("coordinate", new ArrayList<>());
+
+
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {

@@ -20,7 +20,9 @@
  */
 package com.example.apollo.ui.home;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
@@ -35,6 +37,7 @@ import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
@@ -51,9 +54,19 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.firebase.firestore.SetOptions;
+
+
+
 
 public class EventDetailsFragment extends Fragment {
 
@@ -67,13 +80,18 @@ public class EventDetailsFragment extends Fragment {
 
     private String eventId;
     private String uid;
+    private HashMap<String, Object> pendingData;
+
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private Button buttonGetLocation;
 
     // derived UI state
     private enum State { NONE, WAITING, INVITED, REGISTERED }
     private State state = State.NONE;
 
     // keep latest snapshots to avoid races
-    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null;
+    private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null, isGeolocation = null;
 
     @Nullable
     @Override
@@ -88,6 +106,9 @@ public class EventDetailsFragment extends Fragment {
 
         ImageView qrButton = view.findViewById(R.id.qrButton);
         qrButton.setOnClickListener(v -> showQrCodeModal());
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+
 
 
         textEventTitle = view.findViewById(R.id.textEventTitle);
@@ -143,6 +164,7 @@ public class EventDetailsFragment extends Fragment {
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
                         String posterUrl = document.getString("eventPosterUrl");
+                        isGeolocation = Boolean.TRUE.equals(document.getBoolean("geolocation"));
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this)
@@ -287,6 +309,87 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+
+    private void getUserLocation(LocationCallback callback) {
+
+        if (ActivityCompat.checkSelfPermission(requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            requestPermissions(
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    2002
+            );
+
+
+            //            callback.onComplete(null, null);
+            return;
+        }
+
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        callback.onComplete(location.getLatitude(), location.getLongitude());
+                    } else {
+                        callback.onComplete(null, null);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    callback.onComplete(null, null);
+                });
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == 2002) {
+            if (grantResults.length > 0 &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                getUserLocation((lat, lon) -> {
+                    if (lat != null && lon != null) {
+                        pendingData.put("latitude", lat);
+                        pendingData.put("longitude", lon);
+
+                        DocumentReference eventRef = db.collection("events").document(eventId);
+
+                        eventRef.get().addOnSuccessListener(doc -> {
+                            List<Map<String, Object>> coords =
+                                    (List<Map<String, Object>>) doc.get("coordinate");
+
+                            if (coords == null) coords = new ArrayList<>();
+
+                            Map<String, Object> newPoint = new HashMap<>();
+                            newPoint.put("lat", lat);
+                            newPoint.put("lon", lon);
+                            coords.add(newPoint);
+
+                            eventRef.update("coordinate", coords)
+                                    .addOnSuccessListener(a -> {
+                                        // Now save waitlist
+                                        waitlistRef().set(pendingData, SetOptions.merge())
+                                                .addOnSuccessListener(ok -> toast("Joined waitlist"))
+                                                .addOnFailureListener(err -> toast("Failed: " + err.getMessage()));
+                                    })
+                                    .addOnFailureListener(err -> toast("Coord update failed: " + err.getMessage()));
+                        });
+
+                    } else {
+                        waitlistRef().set(pendingData, SetOptions.merge());
+                    }
+                });
+
+            } else {
+                toast("Location permission denied");
+            }
+        }
+
+    }
+
+
+
     // ========= join/leave logic (unchanged behavior for WAITING) =========
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
@@ -316,16 +419,86 @@ public class EventDetailsFragment extends Fragment {
                 HashMap<String, Object> data = new HashMap<>();
                 data.put("joinedAt", FieldValue.serverTimestamp());
                 data.put("state", "waiting");
-                waitlistRef().set(data)
-                        .addOnSuccessListener(ok -> {
-                            toast("Joined waitlist");
-                            setLoading(false);
-                        })
-                        .addOnFailureListener(e -> {
-                            toast("Failed to join: " + e.getMessage());
-                            setLoading(false);
-                        });
+                pendingData = data;
+
+                if (isGeolocation) {
+
+                    getUserLocation((lat, lon) -> {
+
+                        if (lat != null && lon != null) {
+
+                            // Save individual fields
+                            data.put("latitude", lat);
+                            data.put("longitude", lon);
+
+                            // Append to coordinates array in event document
+                            DocumentReference eventRef = db.collection("events").document(eventId);
+
+                            eventRef.get().addOnSuccessListener(doc -> {
+
+                                List<Map<String, Object>> coords =
+                                        (List<Map<String, Object>>) doc.get("coordinate");
+
+                                if (coords == null) {
+                                    coords = new ArrayList<>();
+                                }
+
+                                Map<String, Object> newPoint = new HashMap<>();
+                                newPoint.put("lat", lat);
+                                newPoint.put("lon", lon);
+                                coords.add(newPoint);
+
+                                // ⭐ Update the event's coordinates
+                                eventRef.update("coordinate", coords)
+                                        .addOnSuccessListener(a -> {
+                                            Log.d("Geo", "Coordinate appended.");
+
+                                            // ⭐ NOW save the entrant to waitlist
+                                            waitlistRef().set(data, SetOptions.merge())
+                                                    .addOnSuccessListener(ok -> {
+                                                        toast("Joined waitlist");
+                                                        setLoading(false);
+                                                    })
+                                                    .addOnFailureListener(e -> {
+                                                        toast("Failed to join: " + e.getMessage());
+                                                        setLoading(false);
+                                                    });
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e("Geo", "Failed to append coord", e);
+                                            setLoading(false);
+                                        });
+                            });
+
+                        } else {
+                            // location null → still join waitlist WITHOUT coords
+                            waitlistRef().set(data, SetOptions.merge())
+                                    .addOnSuccessListener(ok -> {
+                                        toast("Joined waitlist");
+                                        setLoading(false);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        toast("Failed: " + e.getMessage());
+                                        setLoading(false);
+                                    });
+                        }
+
+                    });
+
+                } else {
+                    // No geolocation → simple save
+                    waitlistRef().set(data, SetOptions.merge())
+                            .addOnSuccessListener(ok -> {
+                                toast("Joined waitlist");
+                                setLoading(false);
+                            })
+                            .addOnFailureListener(e -> {
+                                toast("Failed to join: " + e.getMessage());
+                                setLoading(false);
+                            });
+                }
             }
+
         });
     }
 
@@ -485,6 +658,10 @@ public class EventDetailsFragment extends Fragment {
             return null;
         }
     }
+    private interface LocationCallback {
+        void onComplete(@Nullable Double lat, @Nullable Double lon);
+    }
+
 
 
 }

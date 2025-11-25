@@ -36,6 +36,15 @@ import java.util.Map;
 import java.util.Random;
 
 import android.text.TextUtils;
+import org.osmdroid.config.Configuration;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
+import androidx.preference.PreferenceManager;
+import org.osmdroid.util.BoundingBox;
+
+
 
 /**
  * OrganizerEventDetailsFragment.java
@@ -62,8 +71,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private boolean canDrawReplacement = false;
     private ImageView eventPosterImage;
     private String eventId;
+    private MapView mapView;
     private String eventName = "Event";
     private static final String TAG = "LotteryFix";
+    private boolean showMap = false;
+
 
     /**
      * Called when the fragment’s view is created.
@@ -94,7 +106,13 @@ public class OrganizerEventDetailsFragment extends Fragment {
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
         buttonDrawReplacement = view.findViewById(R.id.buttonDrawReplacement);
         updateDrawReplacementButtonEnabled(false);
+        mapView = view.findViewById(R.id.map);
 
+        Configuration.getInstance().load(
+                getContext(),
+                PreferenceManager.getDefaultSharedPreferences(getContext())
+        );
+        Configuration.getInstance().setUserAgentValue(requireContext().getPackageName());
 
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
@@ -163,7 +181,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
      * @param eventId The ID of the event to load.
      */
     private void loadEventDetails(String eventId) {
+//        mapView = requireView().findViewById(R.id.map);
+
+
         DocumentReference eventRef = db.collection("events").document(eventId);
+
         eventRef.get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
@@ -178,6 +200,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Long waitlistCapacity = document.getLong("waitlistCapacity");
                         Double price = document.getDouble("price");
                         String posterUrl = document.getString("eventPosterUrl");
+                        boolean showMap = Boolean.TRUE.equals(document.getBoolean("geolocation"));
+
+
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this).load(posterUrl).into(eventPosterImage);
@@ -211,6 +236,48 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         capacityText + "\n" +
                                         waitlistText
                         );
+
+                        if (showMap) {
+                            mapView.setVisibility(View.VISIBLE);
+                            mapView.setTileSource(TileSourceFactory.MAPNIK);
+                            mapView.setMultiTouchControls(true);
+
+
+                            // ----- Load coordinates array from Firestore -----
+                            List<Map<String, Object>> coords =
+                                    (List<Map<String, Object>>) document.get("coordinate");
+
+                            if (coords != null && !coords.isEmpty()) {
+
+                                // Center map on the first point
+                                Map<String, Object> first = coords.get(0);
+                                double lat = (double) first.get("lat");
+                                double lon = (double) first.get("lon");
+
+                                mapView.getController().setZoom(13.0);
+                                mapView.getController().setCenter(new GeoPoint(lat, lon));
+
+                                // Add markers for every coordinate point
+                                for (Map<String, Object> point : coords) {
+                                    double pLat = (double) point.get("lat");
+                                    double pLon = (double) point.get("lon");
+
+                                    Marker marker = new Marker(mapView);
+                                    marker.setPosition(new GeoPoint(pLat, pLon));
+                                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+                                    marker.setTitle("Entrant Location");
+
+                                    mapView.getOverlays().add(marker);
+                                }
+
+                                mapView.invalidate(); // refresh map
+                            } else {
+                                Log.d("MAP", "No coordinates stored in Firestore.");
+                            }
+                        }
+
+
+
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }

@@ -64,6 +64,7 @@ dependencies {
 
     // Glide (image loading)
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation(libs.play.services.location)
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     // Testing
@@ -78,4 +79,8 @@ dependencies {
 
     // QR Code Generation
     implementation("com.google.zxing:core:3.5.2")
+
+    // map
+    implementation("org.osmdroid:osmdroid-android:6.1.17")
+    implementation("androidx.preference:preference:1.2.1")
 }
