@@ -148,5 +148,13 @@
             android:textStyle="bold"
             android:textSize="12sp" />
 
+        <org.osmdroid.views.MapView
+            android:id="@+id/map"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:visibility="gone" />
+
+
+
     </LinearLayout>
 </ScrollView>
