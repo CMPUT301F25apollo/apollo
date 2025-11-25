@@ -18,7 +18,7 @@
  * - Event sorting and pagination not yet implemented
  * - Error handling for missing or invalid event data could be improved
  */
-package com.example.apollo.ui.home;
+package com.example.apollo.ui.entrant.home;
 
 import android.os.Bundle;
 import android.util.Log;

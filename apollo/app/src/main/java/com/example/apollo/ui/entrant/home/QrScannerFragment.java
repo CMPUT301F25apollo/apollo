@@ -1,4 +1,4 @@
-package com.example.apollo.ui.home;
+package com.example.apollo.ui.entrant.home;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
