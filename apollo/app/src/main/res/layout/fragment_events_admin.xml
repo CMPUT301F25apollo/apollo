@@ -9,56 +9,51 @@
     android:padding="20dp"
     tools:context=".ui.entrant.home.HomeFragment">
 
-    <!-- Header row with title and filter + info icons -->
+    <!-- Header row with title + inline search bar -->
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp">
+        android:layout_height="50dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginTop="20dp"
+        >
 
+        <!-- Left: "apollo" title -->
         <TextView
             android:id="@+id/textHome"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
             android:text="apollo"
             android:textSize="26sp"
             android:textStyle="bold"
             android:textColor="@android:color/black" />
 
-        <!-- Filter Button (top-right corner) -->
-        <ImageButton
-            android:id="@+id/buttonFilter"
-            android:layout_width="40dp"
+        <!-- Center/Right: Search bar -->
+        <LinearLayout
+            android:id="@+id/searchBarContainer"
+            android:layout_width="match_parent"
             android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:background="@android:color/transparent"
-            android:contentDescription="Filter"
-            android:src="@drawable/ic_filter_list" />
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/textHome"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="horizontal"
+            android:background="@drawable/searchbar_background"
+            android:paddingHorizontal="12dp"
+            android:gravity="center_vertical">
 
-        <!-- Info (light bulb) Button to show lottery popup -->
-        <!-- leaves space between info button and filter icon -->
-        <ImageButton
-            android:id="@+id/buttonInfo"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginEnd="56dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="@string/cd_lottery_info"
-            android:src="@drawable/ic_lightbulb_24" />
+            <EditText
+                android:id="@+id/search_events_input"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:hint="Search events..."
+                android:textColor="@android:color/black"
+                android:textSize="14sp" />
+        </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/buttonQrScanner"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:layout_gravity="end"
-            android:layout_alignParentEnd="true"
-            android:layout_marginEnd="115dp"
-            android:layout_marginTop="6dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="QR Scanner"
-            android:src="@drawable/qrcode"
-            app:tint="@color/black" />
     </RelativeLayout>
+
 
     <!-- Events section title -->
     <TextView
@@ -85,5 +80,4 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
     </ScrollView>
-
 </LinearLayout>

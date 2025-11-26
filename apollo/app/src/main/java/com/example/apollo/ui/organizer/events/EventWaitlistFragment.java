@@ -112,17 +112,59 @@ public class EventWaitlistFragment extends Fragment {
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         String entrantId = doc.getId();
 
-                        // Fetch entrant details from users collection
+                        // Fetch entrant name
                         db.collection("users")
                                 .document(entrantId)
                                 .get()
                                 .addOnSuccessListener(userDoc -> {
                                     String name = userDoc.getString("name");
-                                    uniqueEntrants.add(name != null ? name : entrantId);
+                                    String displayName = (name != null) ? name : entrantId;
 
-                                    entrantsList.clear();
-                                    entrantsList.addAll(uniqueEntrants);
-                                    adapter.notifyDataSetChanged();
+                                    // FIRST: check winners
+                                    db.collection("events")
+                                            .document(eventId)
+                                            .collection("lotteryResults")
+                                            .document("winners")
+                                            .collection("users")
+                                            .document(entrantId)
+                                            .get()
+                                            .addOnSuccessListener(winnerDoc -> {
+
+                                                if (winnerDoc.exists()) {
+                                                    String item = displayName + " – winner";
+                                                    uniqueEntrants.add(item);
+
+                                                    entrantsList.clear();
+                                                    entrantsList.addAll(uniqueEntrants);
+                                                    adapter.notifyDataSetChanged();
+                                                    return;
+                                                }
+
+                                                // SECOND: check losers
+                                                db.collection("events")
+                                                        .document(eventId)
+                                                        .collection("lotteryResults")
+                                                        .document("losers")
+                                                        .collection("users")
+                                                        .document(entrantId)
+                                                        .get()
+                                                        .addOnSuccessListener(loserDoc -> {
+
+                                                            String status;
+                                                            if (loserDoc.exists()) {
+                                                                status = "loser";
+                                                            } else {
+                                                                status = "waiting";
+                                                            }
+
+                                                            String item = displayName + " – " + status;
+
+                                                            uniqueEntrants.add(item);
+                                                            entrantsList.clear();
+                                                            entrantsList.addAll(uniqueEntrants);
+                                                            adapter.notifyDataSetChanged();
+                                                        });
+                                            });
                                 })
                                 .addOnFailureListener(e -> {
                                     uniqueEntrants.add(entrantId);
@@ -130,7 +172,9 @@ public class EventWaitlistFragment extends Fragment {
                                     entrantsList.addAll(uniqueEntrants);
                                     adapter.notifyDataSetChanged();
                                 });
+
                     }
+
                 })
                 .addOnFailureListener(e -> emptyTextView.setText("Failed to load waitlist"));
     }

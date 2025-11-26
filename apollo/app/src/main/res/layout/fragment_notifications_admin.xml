@@ -33,36 +33,11 @@
             android:background="@android:color/transparent"
             android:contentDescription="Filter"
             android:src="@drawable/ic_filter_list" />
-
-        <!-- Info (light bulb) Button to show lottery popup -->
-        <!-- leaves space between info button and filter icon -->
-        <ImageButton
-            android:id="@+id/buttonInfo"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginEnd="56dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="@string/cd_lottery_info"
-            android:src="@drawable/ic_lightbulb_24" />
-
-        <ImageButton
-            android:id="@+id/buttonQrScanner"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:layout_gravity="end"
-            android:layout_alignParentEnd="true"
-            android:layout_marginEnd="115dp"
-            android:layout_marginTop="6dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="QR Scanner"
-            android:src="@drawable/qrcode"
-            app:tint="@color/black" />
     </RelativeLayout>
 
     <!-- Events section title -->
     <TextView
-        android:text="EVENTS"
+        android:text="LOGS"
         android:textStyle="bold"
         android:textSize="20sp"
         android:textColor="@android:color/black"
@@ -85,5 +60,4 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
     </ScrollView>
-
 </LinearLayout>

@@ -1,4 +1,4 @@
-package com.example.apollo.ui.profile;
+package com.example.apollo.ui.entrant.profile;
 
 import android.content.Intent;
 import android.os.Bundle;

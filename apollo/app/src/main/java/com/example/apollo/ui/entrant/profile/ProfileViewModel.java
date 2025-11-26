@@ -1,4 +1,4 @@
-package com.example.apollo.ui.profile;
+package com.example.apollo.ui.entrant.profile;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;

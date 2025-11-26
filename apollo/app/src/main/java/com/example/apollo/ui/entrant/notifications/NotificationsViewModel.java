@@ -1,4 +1,4 @@
-package com.example.apollo.ui.notifications;
+package com.example.apollo.ui.entrant.notifications;
 
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentSnapshot;
