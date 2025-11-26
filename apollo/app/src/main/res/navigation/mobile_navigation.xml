@@ -84,7 +84,17 @@
             app:destination="@id/navigation_event_details" />
     </fragment>
 
+    <fragment
+        android:id="@+id/navigation_invite_response"
+        android:name="com.example.apollo.ui.entrant.notifications.InviteResponseFragment"
+        android:label="Invite Response"
+        tools:layout="@layout/fragment_invite_response">
 
+        <argument
+            android:name="eventId"
+            app:argType="string" />
+
+    </fragment>
 
 
 </navigation>
