@@ -148,9 +148,9 @@ public class SettingsFragment extends Fragment {
             return;
         }
 
-        // email validation
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            editEmail.setError("Please enter a valid email address");
+        // email validation using regex
+        if (!email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            editEmail.setError("Please enter a valid email (e.g., name@example.com)");
             editEmail.requestFocus();
             return;
         }
