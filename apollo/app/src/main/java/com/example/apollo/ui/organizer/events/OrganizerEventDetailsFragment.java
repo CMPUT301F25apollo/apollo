@@ -82,8 +82,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
      * Initializes Firestore and UI components, loads event details,
      * and sets up button click actions.
      *
-     * @param inflater Used to inflate the layout.
-     * @param container The parent view group.
+     * @param inflater           Used to inflate the layout.
+     * @param container          The parent view group.
      * @param savedInstanceState Bundle with saved state, if any.
      * @return The root view for this fragment.
      */
@@ -170,7 +170,23 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
         // QR button opens a modal with generated QR code
         ImageView qrButton = view.findViewById(R.id.qrButton);
-        qrButton.setOnClickListener(v -> showQrCodeModal());
+        qrButton.setOnClickListener(v -> {
+            db.collection("events").document(eventId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (!doc.exists()) return;
+
+                        String qrValue = doc.getString("eventQR");
+                        if (qrValue == null) {
+                            Toast.makeText(getContext(), "No QR saved for this event.", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        generateAndShowQR(qrValue); // function below
+                    })
+                    .addOnFailureListener(e -> Toast.makeText(getContext(), "QR load failed", Toast.LENGTH_SHORT).show());
+        });
+
 
         return view;
     }
@@ -201,7 +217,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Double price = document.getDouble("price");
                         String posterUrl = document.getString("eventPosterUrl");
                         boolean showMap = Boolean.TRUE.equals(document.getBoolean("geolocation"));
-
 
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
@@ -277,7 +292,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         }
 
 
-
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
@@ -288,7 +302,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
     /**
      * Prompts the organizer to enter how many winners should be selected for the lottery.
      *
-     * @param eventId The ID of the event.
+     * @param eventId   The ID of the event.
      * @param eventName The name of the event for notification messages.
      */
     private void askForWinnerCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
@@ -305,7 +319,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .setPositiveButton("Run", (dlg, which) -> {
                     String s = (input.getText() == null) ? "" : input.getText().toString().trim();
                     int k = 0;
-                    try { k = Integer.parseInt(s); } catch (Exception ignore) {}
+                    try {
+                        k = Integer.parseInt(s);
+                    } catch (Exception ignore) {
+                    }
                     if (k <= 0) {
                         Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
                         return;
@@ -350,7 +367,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .setPositiveButton("Draw", (dlg, which) -> {
                     String s = (input.getText() == null) ? "" : input.getText().toString().trim();
                     int k = 0;
-                    try { k = Integer.parseInt(s); } catch (Exception ignore) {}
+                    try {
+                        k = Integer.parseInt(s);
+                    } catch (Exception ignore) {
+                    }
                     if (k <= 0) {
                         Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
                         return;
@@ -366,8 +386,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
     /**
      * Selects a random number of winners from the event’s waitlist and sends them notifications.
      *
-     * @param eventId The ID of the event.
-     * @param eventName The name of the event.
+     * @param eventId       The ID of the event.
+     * @param eventName     The name of the event.
      * @param winnersToPick The number of winners to select.
      */
     public void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
@@ -516,8 +536,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     }
 
 
-
-
                     batch.commit()
                             .addOnSuccessListener(u ->
                                     Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show())
@@ -532,57 +550,34 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
-    /**
-     * Generates a QR code image from a given string.
-     *
-     * @param data The string to encode in the QR code.
-     * @return A Bitmap representing the QR code, or null if generation fails.
-     */
-    private Bitmap generateQRCode(String data) {
+    private void generateAndShowQR(String content) {
         try {
-            com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
-            com.google.zxing.common.BitMatrix bitMatrix = writer.encode(data, com.google.zxing.BarcodeFormat.QR_CODE, 500, 500);
+            com.google.zxing.Writer writer = new com.google.zxing.qrcode.QRCodeWriter();
+            com.google.zxing.common.BitMatrix matrix = writer.encode(content, com.google.zxing.BarcodeFormat.QR_CODE, 600, 600);
 
-            int width = bitMatrix.getWidth();
-            int height = bitMatrix.getHeight();
-            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
-
-            for (int x = 0; x < width; x++) {
-                for (int y = 0; y < height; y++) {
-                    bmp.setPixel(x, y, bitMatrix.get(x, y)
-                            ? android.graphics.Color.BLACK
-                            : android.graphics.Color.WHITE);
+            Bitmap bmp = Bitmap.createBitmap(600, 600, Bitmap.Config.RGB_565);
+            for (int x = 0; x < 600; x++) {
+                for (int y = 0; y < 600; y++) {
+                    bmp.setPixel(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
                 }
             }
-            return bmp;
+
+            showQRPopup(bmp);
+
         } catch (Exception e) {
-            Log.e("QR", "Error generating QR code", e);
-            return null;
+            Toast.makeText(getContext(), "QR generation failed", Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Displays a modal showing the QR code for the current event.
-     */
-    private void showQrCodeModal() {
-        if (eventId == null) return;
+    private void showQRPopup(Bitmap qrBitmap) {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+        ImageView img = new ImageView(requireContext());
+        img.setImageBitmap(qrBitmap);
 
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
-        ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
-        Button closeButton = dialogView.findViewById(R.id.closeButton);
-
-        Bitmap qrBitmap = generateQRCode(eventId);
-        qrImageView.setImageBitmap(qrBitmap);
-
-        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
-                .setView(dialogView)
-                .create();
-
-        closeButton.setOnClickListener(v -> dialog.dismiss());
-        dialog.show();
-    }
-    public void setDb(FirebaseFirestore firestore) {
-        this.db = firestore;
+        builder.setView(img)
+                .setPositiveButton("Close", null)
+                .show();
     }
 
 }
+
