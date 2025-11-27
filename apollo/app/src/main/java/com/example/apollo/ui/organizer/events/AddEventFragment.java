@@ -226,28 +226,29 @@ public class AddEventFragment extends Fragment {
         Map<String, Object> event = buildEventMap();
         if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
+        // 🔹 QR saved once forever - not regenerated later
+        if (eventId == null) { // new event only
+            String qrCodeString = UUID.randomUUID().toString();
+            event.put("eventQR", qrCodeString);
+        }
+
         if (eventId != null) {
-            // Update existing event
             db.collection("events").document(eventId)
                     .set(event, SetOptions.merge())
                     .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(getContext(), "Event updated successfully!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Event updated.", Toast.LENGTH_SHORT).show();
                         getParentFragmentManager().popBackStack();
-                    })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    });
         } else {
-            // Create new event
             db.collection("events")
                     .add(event)
-                    .addOnSuccessListener(documentReference -> {
-                        Toast.makeText(getContext(), "Event created successfully!", Toast.LENGTH_SHORT).show();
+                    .addOnSuccessListener(doc -> {
+                        Toast.makeText(getContext(), "Event created!", Toast.LENGTH_SHORT).show();
                         getParentFragmentManager().popBackStack();
-                    })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    });
         }
     }
+
 
     /**
      * Loads event details from Firestore when editing an existing event.
