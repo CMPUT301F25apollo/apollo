@@ -581,6 +581,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         closeButton.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }
+
     public void setDb(FirebaseFirestore firestore) {
         this.db = firestore;
     }

@@ -5,53 +5,74 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:padding="8dp"
     android:background="@drawable/rounded_card"
     android:clickable="true"
     android:focusable="true"
-    android:elevation="2dp">
+    android:elevation="4dp">
 
-    <!-- Event title -->
-    <TextView
-        android:id="@+id/eventTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Event Name"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="6dp"
-        android:ellipsize="end"
-        android:maxLines="2" />
-
-    <!-- Event image -->
+    <!-- Left Side : Event image -->
     <ImageView
         android:id="@+id/eventPosterImage"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:adjustViewBounds="true"
+        android:layout_width="90dp"
+        android:layout_height="90dp"
+        android:layout_marginEnd="10dp"
         android:scaleType="centerCrop"
-        android:clickable="false"
-        android:focusable="false"
-        android:importantForAccessibility="no" />
+        android:adjustViewBounds="true"
+        android:src="@drawable/ic_launcher_background" />
 
-    <!-- Row containing delete button (right-aligned) -->
+    <!-- Right Side : Event Information -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="end"
-        android:paddingTop="6dp">
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/delete_button"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:clickable="true"
-            android:contentDescription="Delete event"
-            android:focusable="true"
-            android:src="@drawable/delete"
-            app:tint="@android:color/holo_red_dark" />
+        <TextView
+            android:id="@+id/eventTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Event Name"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/eventLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Location:"
+            android:textSize="14sp"
+            android:layout_marginTop="2dp"/>
+
+        <TextView
+            android:id="@+id/eventCapacity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Capacity:"
+            android:textSize="14sp"
+            android:layout_marginTop="2dp"/>
+
+        <TextView
+            android:id="@+id/eventWaitlist"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Waitlist:"
+            android:textSize="14sp"
+            android:layout_marginTop="2dp"/>
+
+        <!-- Delete button (aligned bottom-right) -->
     </LinearLayout>
+    <ImageView
+        android:id="@+id/delete_button"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="6dp"
+        android:layout_gravity="bottom"
+        android:src="@drawable/delete"
+        app:tint="@android:color/holo_red_dark"
+        android:contentDescription="Delete Event" />
 
 </LinearLayout>
