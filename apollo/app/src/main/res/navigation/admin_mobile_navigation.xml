@@ -26,9 +26,9 @@
     <!-- 📄 Event Details -->
     <fragment
         android:id="@+id/navigation_event_details"
-        android:name="com.example.apollo.ui.entrant.home.EventDetailsFragment"
+        android:name="com.example.apollo.ui.admin.events.EventDetailsFragment"
         android:label="Event Details"
-        tools:layout="@layout/fragment_event_details">
+        tools:layout="@layout/fragment_event_details_admin">
 
         <action
             android:id="@+id/action_navigation_event_details_to_navigation_events"

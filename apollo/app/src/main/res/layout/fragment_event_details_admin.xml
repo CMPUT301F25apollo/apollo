@@ -62,11 +62,6 @@
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
-                    <ImageView
-                        android:id="@+id/qrButton"
-                        android:layout_width="50dp"
-                        android:layout_height="50dp"
-                        android:src="@drawable/qrcode" />
                 </LinearLayout>
 
                 <!-- Event description -->
