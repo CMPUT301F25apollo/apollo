@@ -419,6 +419,7 @@ public class EventDetailsFragment extends Fragment {
                 HashMap<String, Object> data = new HashMap<>();
                 data.put("joinedAt", FieldValue.serverTimestamp());
                 data.put("state", "waiting");
+                data.put("lastResult", null);
                 pendingData = data;
 
                 if (isGeolocation) {
