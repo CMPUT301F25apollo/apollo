@@ -57,6 +57,8 @@ public class EventsFragment extends Fragment {
             public void afterTextChanged(Editable s) {}
         });
 
+
+
         return view;
     }
 
@@ -70,14 +72,30 @@ public class EventsFragment extends Fragment {
                         String eventId = document.getId();
                         String title = document.getString("title");
                         String posterUrl = document.getString("eventPosterUrl");
+                        String location = document.getString("location");
+                        Long capacity = document.getLong("eventCapacity");
+                        long waitlist =  document.getLong("waitlistCapacity");
 
-                        allEvents.add(new Event(eventId, title, posterUrl));
+                        // Now get waitlist count
+                        db.collection("events")
+                                .document(eventId)
+                                .collection("waitlist")
+                                .get()
+                                .addOnSuccessListener(waitlistSnapshot -> {
+
+                                    int waitlistCount = waitlistSnapshot.size();
+
+                                    allEvents.add(new Event(
+                                            eventId, title, posterUrl, location, capacity, waitlist, waitlistCount
+                                    ));
+
+                                    filterEvents(searchInput.getText().toString());
+                                });
                     }
 
-                    // Initially display all events
-                    filterEvents(searchInput.getText().toString());
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
+
     }
 
     private void filterEvents(String query) {
@@ -93,6 +111,14 @@ public class EventsFragment extends Fragment {
                 TextView titleView = card.findViewById(R.id.eventTitle);
                 ImageView posterView = card.findViewById(R.id.eventPosterImage);
                 ImageView deleteButton = card.findViewById(R.id.delete_button);
+                TextView locationView = card.findViewById(R.id.eventLocation);
+                TextView capacityView = card.findViewById(R.id.eventCapacity);
+                TextView waitlistView = card.findViewById(R.id.eventWaitlist);
+
+                locationView.setText("Location: " + event.getLocation());
+                capacityView.setText("Event Capacity: " + event.getCapacity());
+                waitlistView.setText("Waitlist Capacity: " + event.waitlistCount + "/" + event.capacity);
+
 
                 titleView.setText(event.getTitle());
 
@@ -102,13 +128,18 @@ public class EventsFragment extends Fragment {
                             .into(posterView);
                 }
 
-                // Click to navigate
+                // Click to navigate to details
                 card.setOnClickListener(v -> {
                     Bundle bundle = new Bundle();
                     bundle.putString("eventId", event.getId());
-                    NavController navController = NavHostFragment.findNavController(this);
-                    // navController.navigate(R.id.action_eventsFragment_to_eventDetailsFragment, bundle);
+
+                    // Use the fragment reference correctly
+                    NavController navController = NavHostFragment.findNavController(EventsFragment.this);
+
+                    // Make sure this action exists in nav_graph.xml
+                    navController.navigate(R.id.action_navigation_events_to_navigation_event_details, bundle);
                 });
+
 
                 // Click to delete
                 deleteButton.setOnClickListener(v ->
@@ -123,17 +154,31 @@ public class EventsFragment extends Fragment {
         private final String id;
         private final String title;
         private final String posterUrl;
+        private final String location;
+        private final Long capacity;
+        private final Long waitlist;
+        int waitlistCount;
 
-        public Event(String id, String title, String posterUrl) {
+        public Event(String id, String title, String posterUrl, String location,
+                     Long capacity, Long waitlist, int waitlistCount) {
             this.id = id;
             this.title = title;
             this.posterUrl = posterUrl;
+            this.location = location;
+            this.capacity = capacity;
+            this.waitlist = waitlist;
+            this.waitlistCount = waitlistCount;
+
         }
 
         public String getId() { return id; }
         public String getTitle() { return title; }
         public String getPosterUrl() { return posterUrl; }
+        public String getLocation() { return location; }
+        public Long getCapacity() { return capacity; }
+        public Long getWaitlist() { return waitlist; }
     }
+
 
     private void showDeleteConfirmationDialog(String eventId, View card, String eventTitle) {
         new AlertDialog.Builder(requireContext())
