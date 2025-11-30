@@ -258,8 +258,23 @@ public class EventDetailsFragment extends Fragment {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
 
-                        if (isClosed) {
-                            buttonJoinWaitlist.setText("Registration is closed");
+                        // IMPORTANT: assign the computed values to the actual fragment-wide flags
+                        registrationNotStartedYet = notStarted;
+                        registrationEnded = ended;
+                        registrationOpenNow = isOpen;
+
+                        // apply registration period rules to main button BEFORE any state logic
+                        if (registrationNotStartedYet) {
+                            buttonJoinWaitlist.setText("REGISTRATION NOT OPEN");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+
+                        else if (registrationEnded) {
+                            buttonJoinWaitlist.setText("REGISTRATION CLOSED");
                             buttonJoinWaitlist.setEnabled(false);
                             buttonJoinWaitlist.setBackgroundTintList(
                                     ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
