@@ -231,6 +231,7 @@ public class AddEventFragment extends Fragment {
             String qrCodeString = UUID.randomUUID().toString();
             event.put("eventQR", qrCodeString);
         }
+        event.put("lotteryDone", false);
 
         if (eventId != null) {
             db.collection("events").document(eventId)

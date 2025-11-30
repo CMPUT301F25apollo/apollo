@@ -43,6 +43,10 @@ import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
 import androidx.preference.PreferenceManager;
 import org.osmdroid.util.BoundingBox;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+
 
 
 
@@ -67,15 +71,16 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
-    private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants, buttonDrawReplacement;
-    private boolean canDrawReplacement = false;
+    private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
+
     private ImageView eventPosterImage;
     private String eventId;
     private MapView mapView;
     private String eventName = "Event";
     private static final String TAG = "LotteryFix";
     private boolean showMap = false;
-
+    private String organizerId;
+    private Boolean lotteryDone = false;
 
     /**
      * Called when the fragment’s view is created.
@@ -104,9 +109,25 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
-        buttonDrawReplacement = view.findViewById(R.id.buttonDrawReplacement);
-        updateDrawReplacementButtonEnabled(false);
+
+
         mapView = view.findViewById(R.id.map);
+
+        buttonSendLottery.setOnClickListener(v -> {
+            if (eventId == null || eventId.isEmpty()) {
+                Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // if lottery already sent → just toast
+            if (Boolean.TRUE.equals(lotteryDone)) {
+                Toast.makeText(getContext(), "Lottery already sent.", Toast.LENGTH_SHORT).show();
+            } else {
+                // not sent yet → open dialog
+                askForWinnerCountAndRunLottery(eventId, eventName);
+            }
+        });
+
 
         Configuration.getInstance().load(
                 getContext(),
@@ -123,41 +144,52 @@ public class OrganizerEventDetailsFragment extends Fragment {
             db.collection("events")
                     .document(eventId)
                     .collection("invites")
-                    .whereEqualTo("status", "declined")   // only declined invites
                     .addSnapshotListener((snap, e) -> {
-                        if (e != null) {
-                            Log.e(TAG, "Error listening for declined invites", e);
-                            updateDrawReplacementButtonEnabled(false);
+                        if (e != null || snap == null) {
+                            Log.e(TAG, "Error listening for invites", e);
                             return;
                         }
 
-                        boolean hasDeclined = (snap != null && !snap.isEmpty());
-                        updateDrawReplacementButtonEnabled(hasDeclined);
+                        for (com.google.firebase.firestore.DocumentChange change : snap.getDocumentChanges()) {
+                            String status = change.getDocument().getString("status");
+
+                            // invites that become "declined"
+                            boolean isDeclined = "declined".equals(status);
+                            boolean isNewOrUpdated =
+                                    change.getType() == com.google.firebase.firestore.DocumentChange.Type.ADDED
+                                            || change.getType() == com.google.firebase.firestore.DocumentChange.Type.MODIFIED;
+
+                            if (isDeclined && isNewOrUpdated) {
+                                Log.d(TAG, "Invite declined → running replacement lottery");
+                                // run replacement lottery
+                                runLottery(eventId, eventName, 1);
+
+                                // create a notification for the organizer (no Toast)
+                                if (organizerId != null && !organizerId.isEmpty()) {
+                                    DocumentReference orgNotifRef = db.collection("users")
+                                            .document(organizerId)
+                                            .collection("notifications")
+                                            .document();
+
+                                    Map<String, Object> orgNotif = new HashMap<>();
+                                    orgNotif.put("type", "replacement_drawn");
+                                    orgNotif.put("eventId", eventId);
+                                    orgNotif.put("title", "Replacement entrant drawn");
+                                    orgNotif.put("message",
+                                            "A replacement entrant was drawn automatically for \"" + eventName + "\".");
+                                    orgNotif.put("createdAt", FieldValue.serverTimestamp());
+                                    orgNotif.put("read", false);
+
+                                    orgNotifRef.set(orgNotif)
+                                            .addOnFailureListener(err ->
+                                                    Log.e(TAG, "Failed to write organizer replacement notification", err));
+                                }
+                            }
+
+                        }
                     });
         }
 
-        // Navigate to edit event screen
-        // Prompt organizer to input number of winners, then run lottery
-        buttonSendLottery.setOnClickListener(v -> {
-            if (eventId == null || eventId.isEmpty()) {
-                Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            askForWinnerCountAndRunLottery(eventId, eventName);
-        });
-        buttonDrawReplacement.setOnClickListener(v -> {
-            if (!canDrawReplacement) {
-                Toast.makeText(getContext(),
-                        "You can only draw replacements after a selected entrant declines.",
-                        Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (eventId == null || eventId.isEmpty()) {
-                Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            askForReplacementCountAndRunLottery(eventId, eventName);
-        });
 
 
         // Navigate to waitlist participant screen
@@ -218,7 +250,39 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         String posterUrl = document.getString("eventPosterUrl");
                         boolean showMap = Boolean.TRUE.equals(document.getBoolean("geolocation"));
 
+                        organizerId = document.getString("creatorId");
 
+
+                        lotteryDone = document.getBoolean("lotteryDone");
+                        if (lotteryDone == null) lotteryDone = false;
+                        updateLotteryButtonUi();
+
+
+                        if (!lotteryDone && registrationClose != null
+                                && eventCapacity != null && eventCapacity > 0 && time != null) {
+                            try {
+                                String registrationCloseDateTime = registrationClose + " " + time;
+
+                                SimpleDateFormat fmt =
+                                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
+                                long registrationCloseMillis =
+                                        fmt.parse(registrationCloseDateTime).getTime();
+
+                                long now = System.currentTimeMillis();
+                                long lotteryTime = registrationCloseMillis - 48L * 60L * 60L * 1000L; // 48 hours before
+
+                                if (now >= lotteryTime) {
+                                    // Use eventCapacity as number of winners
+                                    runLottery(eventId, eventName, eventCapacity.intValue());
+                                    // Mark lottery as done so we don't run it twice
+                                    eventRef.update("lotteryDone", true);
+                                }
+
+                            } catch (ParseException e) {
+                                Log.e(TAG, "Failed to parse registrationClose/time for lottery timing", e);
+                            }
+                        }
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this).load(posterUrl).into(eventPosterImage);
                         }
@@ -249,7 +313,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         "Price: " + priceText + "\n" +
                                         "Registration: " + registrationPeriod + "\n" +
                                         capacityText + "\n" +
-                                        waitlistText
+                                        waitlistText +
+                                        "\n\nLottery will run automatically 48 hours before the event."
                         );
 
                         if (showMap) {
@@ -333,19 +398,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .show();
     }
 
-    private void updateDrawReplacementButtonEnabled(boolean enabled) {
-        canDrawReplacement = enabled;
-        if (!isAdded() || buttonDrawReplacement == null || getContext() == null) return;
 
-        int bgColor = enabled ? android.R.color.black : android.R.color.darker_gray;
-        int textColor = android.R.color.white;
-
-        buttonDrawReplacement.setEnabled(enabled);
-        buttonDrawReplacement.setBackgroundTintList(
-                ContextCompat.getColorStateList(requireContext(), bgColor));
-        buttonDrawReplacement.setTextColor(
-                ContextCompat.getColor(requireContext(), textColor));
-    }
 
 
     /**
@@ -353,34 +406,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
      * Reuses the same lottery logic, but is conceptually for filling spots
      * when invited users decline or cancel.
      */
-    private void askForReplacementCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
-        if (getContext() == null) return;
 
-        EditText input = new EditText(requireContext());
-        input.setHint("Number of replacements");
-        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Draw Replacement")
-                .setMessage("How many replacement entrants should be selected?")
-                .setView(input)
-                .setPositiveButton("Draw", (dlg, which) -> {
-                    String s = (input.getText() == null) ? "" : input.getText().toString().trim();
-                    int k = 0;
-                    try {
-                        k = Integer.parseInt(s);
-                    } catch (Exception ignore) {
-                    }
-                    if (k <= 0) {
-                        Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    // Reuse the same lottery logic
-                    runLottery(eventId, eventName, k);
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
 
 
     /**
@@ -438,7 +464,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     // Process winners
                     for (String uid : winners) {
 
-                        // 1. Log winner to lotteryResults/winners
+                        //Log winner to lotteryResults/winners
                         DocumentReference lotteryWinnerRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -463,7 +489,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // 3. Send notification to user
+                        // Send notification to user
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -478,7 +504,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // 4. Update waitlist entry
+                        // Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -491,10 +517,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     }
 
 
-// Process losers
+                    // Process losers
                     for (String uid : losers) {
 
-                        // 1. Log loser to lotteryResults/losers
+                        //  Log loser to lotteryResults/losers
                         DocumentReference lotteryLoserRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -508,7 +534,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         loserLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryLoserRef, loserLog);
 
-                        // 2. Send notification to loser
+                        // Send notification to loser
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -530,19 +556,28 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 .document(uid);
 
                         Map<String, Object> wlUpdate = new HashMap<>();
-                        wlUpdate.put("state", "rejected");
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
+                        wlUpdate.put("lastResult", "not_selected");
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
                     }
 
 
                     batch.commit()
-                            .addOnSuccessListener(u ->
-                                    Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show())
+                            .addOnSuccessListener(u -> {
+                                Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show();
+
+
+                                db.collection("events").document(eventId)
+                                        .update("lotteryDone", true);
+
+                                lotteryDone = true;
+                                updateLotteryButtonUi();
+                            })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Batch commit failed", e);
                                 Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                             });
+
 
 
                 })
@@ -578,6 +613,35 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .setPositiveButton("Close", null)
                 .show();
     }
+    private void updateLotteryButtonUi() {
+        if (!isAdded() || getContext() == null || buttonSendLottery == null) return;
+
+        if (Boolean.TRUE.equals(lotteryDone)) {
+            // Lottery already sent → grey button
+            buttonSendLottery.setText("Send Lottery");
+            buttonSendLottery.setEnabled(true); // clickable for toast
+
+            buttonSendLottery.setBackgroundTintList(
+                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
+            );
+            buttonSendLottery.setTextColor(
+                    ContextCompat.getColor(requireContext(), android.R.color.white)
+            );
+
+        } else {
+            // Lottery not sent yet → normal black button
+            buttonSendLottery.setText("SEND LOTTERY");
+            buttonSendLottery.setEnabled(true);
+
+            buttonSendLottery.setBackgroundTintList(
+                    ContextCompat.getColorStateList(requireContext(), android.R.color.black)
+            );
+            buttonSendLottery.setTextColor(
+                    ContextCompat.getColor(requireContext(), android.R.color.white)
+            );
+        }
+    }
+
 
 }
 

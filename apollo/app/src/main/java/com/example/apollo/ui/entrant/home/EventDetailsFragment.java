@@ -428,15 +428,14 @@ public class EventDetailsFragment extends Fragment {
                             toast("Error leaving waitlist");
                             setLoading(false);
                         });
-                return;
-            }
-
-            // JOIN WAITLIST
-            setLoading(true);
-            HashMap<String, Object> data = new HashMap<>();
-            data.put("joinedAt", FieldValue.serverTimestamp());
-            data.put("state", "waiting");
-            pendingData = data;
+            } else {
+                // join as waiting
+                setLoading(true);
+                HashMap<String, Object> data = new HashMap<>();
+                data.put("joinedAt", FieldValue.serverTimestamp());
+                data.put("state", "waiting");
+                data.put("lastResult", null);
+                pendingData = data;
 
             if (isGeolocation) {
                 getUserLocation((lat, lon) -> {

@@ -136,18 +136,6 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-
-        <Button
-            android:id="@+id/buttonDrawReplacement"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="@color/black"
-            android:text="Draw Replacement"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            android:textSize="12sp" />
-
         <org.osmdroid.views.MapView
             android:id="@+id/map"
             android:layout_width="match_parent"
