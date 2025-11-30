@@ -227,49 +227,69 @@ public class EventDetailsFragment extends Fragment {
 
                         try {
                             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+<<<<<<< Updated upstream
                             Date today = sdf.parse(sdf.format(new Date())); // strip time
+=======
+                            Date today = sdf.parse(sdf.format(new Date()));
+>>>>>>> Stashed changes
 
                             Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
                             Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
 
+<<<<<<< Updated upstream
+=======
+                            // reset defaults
+                            registrationNotStartedYet = false;
+                            registrationEnded = false;
+                            registrationOpenNow = true;
+
+>>>>>>> Stashed changes
                             if (openDate != null && closeDate != null) {
                                 if (today.before(openDate)) {
-                                    notStarted = true;
-                                    isOpen = false;
+                                    registrationNotStartedYet = true;
+                                    registrationOpenNow = false;
                                 } else if (today.after(closeDate)) {
-                                    ended = true;
-                                    isOpen = false;
+                                    registrationEnded = true;
+                                    registrationOpenNow = false;
                                 } else {
+<<<<<<< Updated upstream
                                     isOpen = true;  // between open/close
+=======
+                                    registrationOpenNow = true;
+>>>>>>> Stashed changes
                                 }
                             } else if (openDate != null) {
                                 if (today.before(openDate)) {
-                                    notStarted = true;
-                                    isOpen = false;
+                                    registrationNotStartedYet = true;
+                                    registrationOpenNow = false;
                                 } else {
-                                    isOpen = true;
+                                    registrationOpenNow = true;
                                 }
                             } else if (closeDate != null) {
                                 if (today.after(closeDate)) {
-                                    ended = true;
-                                    isOpen = false;
+                                    registrationEnded = true;
+                                    registrationOpenNow = false;
                                 } else {
-                                    isOpen = true;
+                                    registrationOpenNow = true;
                                 }
                             } else {
-                                // no dates -> always open
-                                isOpen = true;
+                                registrationOpenNow = true;
                             }
+                            renderButton();
                         } catch (Exception e) {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
 
+<<<<<<< Updated upstream
                         registrationNotStartedYet = notStarted;
                         registrationEnded = ended;
                         registrationOpenNow = isOpen;
 
 // re-render button now that all 3 flags are set
                         renderButton();
+=======
+
+>>>>>>> Stashed changes
 
 
                     } else {
