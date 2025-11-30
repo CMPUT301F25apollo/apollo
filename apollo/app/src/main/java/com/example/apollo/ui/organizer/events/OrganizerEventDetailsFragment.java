@@ -21,6 +21,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -448,17 +449,25 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
+        // Organizer ID for logging
+        String organizerId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : "unknown";
+
         fdb.collection("events").document(eventId)
                 .collection("waitlist")
                 .whereEqualTo("state", "waiting")
                 .get()
                 .addOnSuccessListener(snap -> {
+
                     if (snap == null) {
                         Toast.makeText(getContext(), "Failed to load waitlist.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
                     List<String> candidates = new ArrayList<>();
+
+                    // Gather candidates
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String uid = d.getId();
                         if (TextUtils.isEmpty(uid)) {
@@ -468,7 +477,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         if (!TextUtils.isEmpty(uid)) candidates.add(uid);
                     }
 
-                    // Remove duplicates just in case
+                    // Deduplicate
                     candidates = new ArrayList<>(new java.util.LinkedHashSet<>(candidates));
 
                     if (candidates.isEmpty()) {
@@ -476,22 +485,23 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         return;
                     }
 
-                    // Shuffle and pick winners
+                    // Pick winners
                     Collections.shuffle(candidates, new Random());
                     int numberOfWinner = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, numberOfWinner);
-//                    List<String> losers = candidates.subList(numberOfWinner, candidates.size());
 
-                    // Losers = all candidates who weren't picked
+                    // Losers = everyone else
                     List<String> losers = new ArrayList<>(candidates);
                     losers.removeAll(winners);
 
                     WriteBatch batch = fdb.batch();
 
-                    // Process winners
+                    // ------------------------------------------------------------
+                    // WINNERS
+                    // ------------------------------------------------------------
                     for (String uid : winners) {
 
-                        //Log winner to lotteryResults/winners
+                        // ⬅️ Win log in event.lotteryResults
                         DocumentReference lotteryWinnerRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -505,7 +515,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         winnerLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryWinnerRef, winnerLog);
 
-
+                        // ⬅️ Create invite
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
@@ -516,7 +526,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // Send notification to user
+                        // ⬅️ User notification
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -531,7 +541,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // Update waitlist entry
+                        // ⬅️ waitlist update
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -541,13 +551,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("state", "invited");
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
+
+                        // --------------------------------------------------------
+                        // NEW: GLOBAL notification_logs entry
+                        // --------------------------------------------------------
+                        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+                        Map<String, Object> logData = new HashMap<>();
+                        logData.put("eventId", eventId);
+                        logData.put("timestamp", FieldValue.serverTimestamp());
+                        logData.put("organizerId", organizerId);
+                        logData.put("recipientId", uid);
+                        logData.put("notificationType", "lottery_win");
+                        logData.put("notificationTitle", "You were selected!");
+                        logData.put("notificationMessage", "You won the lottery for " + eventName + ".");
+
+                        batch.set(logRef, logData);
                     }
 
-
-                    // Process losers
+                    // ------------------------------------------------------------
+                    // LOSERS
+                    // ------------------------------------------------------------
                     for (String uid : losers) {
 
-                        //  Log loser to lotteryResults/losers
+                        // ⬅️ Loser log in event.lotteryResults
                         DocumentReference lotteryLoserRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -561,7 +588,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         loserLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryLoserRef, loserLog);
 
-                        // Send notification to loser
+                        // ⬅️ Notification to loser
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -576,7 +603,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // 3. Update waitlist entry
+                        // ⬅️ Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -586,13 +613,32 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         wlUpdate.put("lastResult", "not_selected");
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
+
+                        // --------------------------------------------------------
+                        // NEW: GLOBAL notification_logs entry
+                        // --------------------------------------------------------
+                        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+                        Map<String, Object> logData = new HashMap<>();
+                        logData.put("eventId", eventId);
+                        logData.put("timestamp", FieldValue.serverTimestamp());
+                        logData.put("organizerId", organizerId);
+                        logData.put("recipientId", uid);
+                        logData.put("notificationType", "lottery_loss");
+                        logData.put("notificationTitle", "Not Selected This Time");
+                        logData.put("notificationMessage", "You were not selected in the lottery for " + eventName + ".");
+
+                        batch.set(logRef, logData);
                     }
 
-
+                    // ------------------------------------------------------------
+                    // COMMIT BATCH
+                    // ------------------------------------------------------------
                     batch.commit()
                             .addOnSuccessListener(u -> {
-                                Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show();
-
+                                Toast.makeText(getContext(),
+                                        "Lottery sent to " + numberOfWinner + " entrant(s).",
+                                        Toast.LENGTH_SHORT).show();
 
                                 db.collection("events").document(eventId)
                                         .update("lotteryDone", true);
@@ -601,16 +647,18 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 updateLotteryButtonUi();
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "Batch commit failed", e);
-                                Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                Log.e("LotteryFix", "Batch commit failed", e);
+                                Toast.makeText(getContext(),
+                                        "Failed: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
                             });
 
-
-
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
     }
+
 
     /**
      * Sends a notification to all entrants with a given invite status,
@@ -730,6 +778,34 @@ public class OrganizerEventDetailsFragment extends Fragment {
             );
         }
     }
+    /**
+     * Logs a notification to the top-level "notification_logs" collection.
+     */
+    private void logNotificationToGlobal(
+            String eventId,
+            String organizerId,
+            String recipientId,
+            String type,
+            String title,
+            String message
+    ) {
+        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
+        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+        Map<String, Object> log = new HashMap<>();
+        log.put("eventId", eventId);
+        log.put("timestamp", FieldValue.serverTimestamp());
+        log.put("organizerId", organizerId);
+        log.put("recipientId", recipientId);
+        log.put("notificationType", type);
+        log.put("notificationTitle", title);
+        log.put("notificationMessage", message);
+
+        logRef.set(log)
+                .addOnSuccessListener(a -> Log.d("NOTIF_LOG", "Log created"))
+                .addOnFailureListener(e -> Log.e("NOTIF_LOG", "Error creating log", e));
+    }
+
 
 
 }
