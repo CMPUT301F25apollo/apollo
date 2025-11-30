@@ -48,7 +48,6 @@ public class QrScannerFragment extends Fragment {
     private static final int REQUEST_CAMERA_PERMISSION = 1001;
 
     private PreviewView previewView;
-    private ImageButton backButton;
     private TextView overlayText;
 
     private ExecutorService cameraExecutor;
@@ -68,7 +67,6 @@ public class QrScannerFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         previewView = view.findViewById(R.id.previewView);
-        backButton = view.findViewById(R.id.back_button);
         overlayText = view.findViewById(R.id.scanOverlayText);
         hasScannedResult = false;
 
@@ -80,10 +78,6 @@ public class QrScannerFragment extends Fragment {
                         .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
                         .build();
         barcodeScanner = BarcodeScanning.getClient(options);
-
-        backButton.setOnClickListener(v ->
-                NavHostFragment.findNavController(this).navigateUp()
-        );
 
         // Check camera permission
         if (ContextCompat.checkSelfPermission(
