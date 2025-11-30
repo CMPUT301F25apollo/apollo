@@ -231,7 +231,9 @@ public class AddEventFragment extends Fragment {
             String qrCodeString = UUID.randomUUID().toString();
             event.put("eventQR", qrCodeString);
         }
-        event.put("lotteryDone", false);
+        if (eventId == null) {
+            event.put("lotteryDone", false);
+        }
 
         if (eventId != null) {
             db.collection("events").document(eventId)
@@ -271,6 +273,15 @@ public class AddEventFragment extends Fragment {
                     if (timeValue.contains("PM")) selectAMPM("PM");
                     else selectAMPM("AM");
                 }
+
+                if (timeValue.contains("PM")) {
+                    ampm = "PM";
+                    selectAMPM("PM");
+                } else {
+                    ampm = "AM";
+                    selectAMPM("AM");
+                }
+
 
                 if (document.contains("eventCapacity"))
                     eventCapacity.setText(String.valueOf(document.getLong("eventCapacity")));
@@ -423,7 +434,10 @@ public class AddEventFragment extends Fragment {
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
         event.put("geolocation", switchButton.isChecked());
-        event.put("coordinate", new ArrayList<>());
+        if (eventId == null) {
+            // only new events start with empty coordinate list
+            event.put("coordinate", new ArrayList<>());
+        }
 
 
 

@@ -136,6 +136,24 @@
             android:inputType="phone"
             android:autofillHints="phone" />
 
+        <!-- Notifications toggle -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Notifications"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#000000"
+            android:layout_marginTop="16dp" />
+
+        <Switch
+            android:id="@+id/switchNotifications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Receive notifications from admins and organizers"
+            android:checked="true"
+            android:layout_marginTop="8dp"/>
+
         <!-- Save changes-->
         <Button
             android:id="@+id/Savebtn"

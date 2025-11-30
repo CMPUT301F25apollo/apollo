@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -50,6 +51,7 @@ public class SettingsFragment extends Fragment {
 
     private EditText editName, editUsername, editEmail, editPhone;
     private Button saveButton, deleteAccButton;
+    private Switch notificationsSwitch;
 
     private FirebaseFirestore db;
     private FirebaseUser currentUser;
@@ -98,6 +100,16 @@ public class SettingsFragment extends Fragment {
 
         saveButton.setOnClickListener(v -> saveUserProfile());
         deleteAccButton.setOnClickListener(v -> deleteAccount());
+        notificationsSwitch = view.findViewById(R.id.switchNotifications);
+
+        if (currentUser != null) {
+            loadUserProfile();
+            loadNotificationSetting();
+        }
+
+        notificationsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            updateNotificationSetting(isChecked);
+        });
     }
 
     /**
@@ -190,6 +202,31 @@ public class SettingsFragment extends Fragment {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private void loadNotificationSetting() {
+        DocumentReference userRef = db.collection("users").document(currentUser.getUid());
+
+        userRef.get().addOnSuccessListener(snapshot -> {
+            if (snapshot.exists()) {
+                Boolean enabled = snapshot.getBoolean("notificationsEnabled");
+
+                // default = true if not set
+                if (enabled == null) enabled = true;
+
+                notificationsSwitch.setChecked(enabled);
+            }
+        });
+    }
+
+    private void updateNotificationSetting(boolean enabled) {
+        DocumentReference userRef = db.collection("users").document(currentUser.getUid());
+
+        userRef.update("notificationsEnabled", enabled)
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(getContext(), "Notification preference updated", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Failed to update setting", Toast.LENGTH_SHORT).show());
     }
 
     private void reauthenticateAndDelete(FirebaseUser user, String password) {
