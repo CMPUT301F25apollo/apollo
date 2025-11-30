@@ -218,20 +218,21 @@ public class EventDetailsFragment extends Fragment {
                                             Log.e("Firestore", "Failed to check waitlist capacity", e));
                         }
 
-                        // Save for UI text later
+                        // Save for UI text later (used in renderButton)
                         registrationOpenText = registrationOpen;
-
+                        
                         boolean notStarted = false;
                         boolean ended = false;
                         boolean isOpen = true;
-
+                        
                         try {
                             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
-                            Date today = sdf.parse(sdf.format(new Date())); // strip time
-
+                            // strip time to compare date-only
+                            Date today = sdf.parse(sdf.format(new Date()));
+                        
                             Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
                             Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
-
+                        
                             if (openDate != null && closeDate != null) {
                                 if (today.before(openDate)) {
                                     notStarted = true;
@@ -240,7 +241,8 @@ public class EventDetailsFragment extends Fragment {
                                     ended = true;
                                     isOpen = false;
                                 } else {
-                                    isOpen = true;  // between open/close
+                                    // between open and close
+                                    isOpen = true;
                                 }
                             } else if (openDate != null) {
                                 if (today.before(openDate)) {
@@ -263,15 +265,15 @@ public class EventDetailsFragment extends Fragment {
                         } catch (Exception e) {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
-
+                        
+                        // update derived flags used by wireJoinLeaveAction() + renderButton()
                         registrationNotStartedYet = notStarted;
                         registrationEnded = ended;
                         registrationOpenNow = isOpen;
-
-// re-render button now that all 3 flags are set
+                        
+                        // re-render button now that all 3 flags are set
                         renderButton();
-
-
+                        
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
