@@ -1,16 +1,21 @@
 package com.example.apollo.ui.organizer.events;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
@@ -18,26 +23,13 @@ import com.example.apollo.R;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * EventWaitlistFragment.java
- *
- * Purpose:
- * Displays a list of entrants currently on the waitlist for a specific event.
- * Fetches data from Firestore and shows entrant names or IDs in a simple ListView.
- *
- * Design Pattern:
- * Acts as a Controller in the MVC pattern, retrieving waitlist data from Firestore (model)
- * and displaying it in the UI (view).
- *
- * Notes:
- * - Shows an empty message if there are no entrants.
- * - Automatically refreshes the list when the fragment becomes visible.
- */
 public class EventWaitlistFragment extends Fragment {
 
     private ListView listView;
@@ -48,15 +40,6 @@ public class EventWaitlistFragment extends Fragment {
     private FirebaseFirestore db;
     private String eventId;
 
-    /**
-     * Called when the fragment’s view is created.
-     * Initializes Firestore, sets up the ListView adapter, and loads waitlist data.
-     *
-     * @param inflater Used to inflate the fragment layout.
-     * @param container The parent view that the fragment attaches to.
-     * @param savedInstanceState The saved instance state, if available.
-     * @return The root view for the fragment.
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -66,28 +49,27 @@ public class EventWaitlistFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_event_waitlist, container, false);
 
         listView = view.findViewById(R.id.listView);
-        emptyTextView = view.findViewById(R.id.textView);
+        emptyTextView = view.findViewById(R.id.emptyText);
 
-        // Set up the adapter for the ListView
         adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, entrantsList);
         listView.setAdapter(adapter);
         listView.setEmptyView(emptyTextView);
 
         db = FirebaseFirestore.getInstance();
 
-        // Get eventId from fragment arguments
+        // Get eventId from arguments
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadWaitlistEntrants();
         }
 
+        // Export CSV button
+        Button exportButton = view.findViewById(R.id.exportCsvButton);
+        exportButton.setOnClickListener(v -> exportWaitlistToCsv());
+
         return view;
     }
 
-    /**
-     * Loads and displays the entrants currently in the waitlist for this event.
-     * Queries Firestore for entrants and fetches their names from the users collection.
-     */
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
@@ -101,6 +83,7 @@ public class EventWaitlistFragment extends Fragment {
                 .whereEqualTo("state", "waiting")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+
                     if (querySnapshot.isEmpty()) {
                         emptyTextView.setText("No entrants in waitlist");
                         adapter.notifyDataSetChanged();
@@ -110,9 +93,9 @@ public class EventWaitlistFragment extends Fragment {
                     Set<String> uniqueEntrants = new LinkedHashSet<>();
 
                     for (QueryDocumentSnapshot doc : querySnapshot) {
+
                         String entrantId = doc.getId();
 
-                        // Fetch entrant name
                         db.collection("users")
                                 .document(entrantId)
                                 .get()
@@ -120,7 +103,7 @@ public class EventWaitlistFragment extends Fragment {
                                     String name = userDoc.getString("name");
                                     String displayName = (name != null) ? name : entrantId;
 
-                                    // FIRST: check winners
+                                    // Check winner
                                     db.collection("events")
                                             .document(eventId)
                                             .collection("lotteryResults")
@@ -131,16 +114,12 @@ public class EventWaitlistFragment extends Fragment {
                                             .addOnSuccessListener(winnerDoc -> {
 
                                                 if (winnerDoc.exists()) {
-                                                    String item = displayName + " – winner";
-                                                    uniqueEntrants.add(item);
-
-                                                    entrantsList.clear();
-                                                    entrantsList.addAll(uniqueEntrants);
-                                                    adapter.notifyDataSetChanged();
+                                                    uniqueEntrants.add(displayName + " – winner");
+                                                    updateUI(uniqueEntrants);
                                                     return;
                                                 }
 
-                                                // SECOND: check losers
+                                                // Check loser
                                                 db.collection("events")
                                                         .document(eventId)
                                                         .collection("lotteryResults")
@@ -150,52 +129,82 @@ public class EventWaitlistFragment extends Fragment {
                                                         .get()
                                                         .addOnSuccessListener(loserDoc -> {
 
-                                                            String status;
-                                                            if (loserDoc.exists()) {
-                                                                status = "loser";
-                                                            } else {
-                                                                status = "waiting";
-                                                            }
+                                                            String status = loserDoc.exists() ? "loser" : "waiting";
+                                                            uniqueEntrants.add(displayName + " – " + status);
 
-                                                            String item = displayName + " – " + status;
-
-                                                            uniqueEntrants.add(item);
-                                                            entrantsList.clear();
-                                                            entrantsList.addAll(uniqueEntrants);
-                                                            adapter.notifyDataSetChanged();
+                                                            updateUI(uniqueEntrants);
                                                         });
                                             });
                                 })
                                 .addOnFailureListener(e -> {
                                     uniqueEntrants.add(entrantId);
-                                    entrantsList.clear();
-                                    entrantsList.addAll(uniqueEntrants);
-                                    adapter.notifyDataSetChanged();
+                                    updateUI(uniqueEntrants);
                                 });
-
                     }
-
                 })
                 .addOnFailureListener(e -> emptyTextView.setText("Failed to load waitlist"));
     }
 
-    /**
-     * Enables the back arrow in the toolbar for navigation.
-     *
-     * @param savedInstanceState The saved state of the fragment, if available.
-     */
+    private void updateUI(Set<String> data) {
+        entrantsList.clear();
+        entrantsList.addAll(data);
+        adapter.notifyDataSetChanged();
+    }
+
+    private void exportWaitlistToCsv() {
+        if (entrantsList.isEmpty()) {
+            Toast.makeText(getContext(), "No data to export", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder csvBuilder = new StringBuilder();
+        csvBuilder.append("Name,Status\n");
+
+        for (String entry : entrantsList) {
+            String[] parts = entry.split(" – ");
+            String name = parts[0];
+            String status = (parts.length > 1) ? parts[1] : "unknown";
+
+            csvBuilder.append(name).append(",").append(status).append("\n");
+        }
+
+        try {
+            String fileName = "waitlist_export_" + System.currentTimeMillis() + ".csv";
+            File file = new File(getContext().getExternalFilesDir(null), fileName);
+
+            FileWriter writer = new FileWriter(file);
+            writer.write(csvBuilder.toString());
+            writer.flush();
+            writer.close();
+
+            shareCsv(file);
+
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Failed to export CSV", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void shareCsv(File file) {
+        Uri uri = FileProvider.getUriForFile(
+                requireContext(),
+                requireContext().getPackageName() + ".fileprovider",
+                file
+        );
+
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("text/csv");
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        startActivity(Intent.createChooser(intent, "Share CSV File"));
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
     }
 
-    /**
-     * Handles toolbar item selections such as the back arrow.
-     *
-     * @param item The selected menu item.
-     * @return true if handled, otherwise passes to the superclass.
-     */
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
@@ -205,9 +214,6 @@ public class EventWaitlistFragment extends Fragment {
         return super.onOptionsItemSelected(item);
     }
 
-    /**
-     * Reloads the waitlist whenever the fragment becomes visible again.
-     */
     @Override
     public void onResume() {
         super.onResume();
