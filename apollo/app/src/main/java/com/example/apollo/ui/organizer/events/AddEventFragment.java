@@ -146,7 +146,7 @@ public class AddEventFragment extends Fragment {
                 Toast.makeText(getContext(), "Geolocation on", Toast.LENGTH_SHORT).show();
             else
                 Toast.makeText(getContext(), "Geolocation off", Toast.LENGTH_SHORT).show();
-                });
+        });
 
         // Save or update event
         buttonSaveEvent.setOnClickListener(v -> {
@@ -448,4 +448,37 @@ public class AddEventFragment extends Fragment {
 
         return event;
     }
+    /**
+     * Logs a notification to the top-level "notification_logs" collection.
+     *
+     * @param eventId            The event ID related to the notification.
+     * @param organizerId        The UID of the organizer who triggered it.
+     * @param recipientId        The UID of the user receiving the notification.
+     * @param notificationType   Category of the notification (e.g., "lottery_win").
+     * @param title              The notification title.
+     * @param message            The notification body text.
+     */
+    private void logNotification(
+            String eventId,
+            String organizerId,
+            String recipientId,
+            String notificationType,
+            String title,
+            String message
+    ) {
+        Map<String, Object> log = new HashMap<>();
+        log.put("eventId", eventId);
+        log.put("timestamp", new com.google.firebase.Timestamp(new Date()));
+        log.put("organizerId", organizerId);
+        log.put("recipientId", recipientId);
+        log.put("notificationType", notificationType);
+        log.put("notificationTitle", title);
+        log.put("notificationMessage", message);
+
+        db.collection("notification_logs")
+                .add(log)
+                .addOnSuccessListener(docRef -> Log.d("Firestore", "Notification logged: " + docRef.getId()))
+                .addOnFailureListener(e -> Log.e("Firestore", "Log failed", e));
+    }
+
 }
