@@ -21,6 +21,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -81,6 +82,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private boolean showMap = false;
     private String organizerId;
     private Boolean lotteryDone = false;
+    private boolean registrationClosed = false;
 
     /**
      * Called when the fragment’s view is created.
@@ -114,19 +116,33 @@ public class OrganizerEventDetailsFragment extends Fragment {
         mapView = view.findViewById(R.id.map);
 
         buttonSendLottery.setOnClickListener(v -> {
+
             if (eventId == null || eventId.isEmpty()) {
                 Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // if lottery already sent → just toast
+            // Registration still open → allow click but show toast
+            if (!registrationClosed) {
+                Toast.makeText(
+                        getContext(),
+                        "Registration must be closed before running the lottery.",
+                        Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+
+            // Already done
             if (Boolean.TRUE.equals(lotteryDone)) {
                 Toast.makeText(getContext(), "Lottery already sent.", Toast.LENGTH_SHORT).show();
-            } else {
-                // not sent yet → open dialog
-                askForWinnerCountAndRunLottery(eventId, eventName);
+                return;
             }
+
+            // Run dialog to choose winners
+            askForWinnerCountAndRunLottery(eventId, eventName);
         });
+
+
 
         Button buttonNotifySelected = view.findViewById(R.id.buttonNotifySelected);
         Button buttonNotifyCancelled = view.findViewById(R.id.buttonNotifyCancelled);
@@ -285,31 +301,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         updateLotteryButtonUi();
 
 
-                        if (!lotteryDone && registrationClose != null
-                                && eventCapacity != null && eventCapacity > 0 && time != null) {
+                        lotteryDone = document.getBoolean("lotteryDone");
+                        if (lotteryDone == null) lotteryDone = false;
+
+// figure out if registration has closed yet
+                        registrationClosed = false;
+                        if (registrationClose != null && time != null) {
                             try {
                                 String registrationCloseDateTime = registrationClose + " " + time;
-
                                 SimpleDateFormat fmt =
-                                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+                                        new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.getDefault());
 
-                                long registrationCloseMillis =
-                                        fmt.parse(registrationCloseDateTime).getTime();
-
+                                long closeMillis = fmt.parse(registrationCloseDateTime).getTime();
                                 long now = System.currentTimeMillis();
-                                long lotteryTime = registrationCloseMillis - 48L * 60L * 60L * 1000L; // 48 hours before
-
-                                if (now >= lotteryTime) {
-                                    // Use eventCapacity as number of winners
-                                    runLottery(eventId, eventName, eventCapacity.intValue());
-                                    // Mark lottery as done so we don't run it twice
-                                    eventRef.update("lotteryDone", true);
-                                }
+                                registrationClosed = now >= closeMillis;   // 👈 true only AFTER close time
 
                             } catch (ParseException e) {
-                                Log.e(TAG, "Failed to parse registrationClose/time for lottery timing", e);
+                                Log.e(TAG, "Failed to parse registrationClose/time for registrationClosed", e);
+                                registrationClosed = false;
                             }
                         }
+
+// now update the button based on lotteryDone + registrationClosed
+                        updateLotteryButtonUi();
+
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this).load(posterUrl).into(eventPosterImage);
                         }
@@ -341,7 +356,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         "Registration: " + registrationPeriod + "\n" +
                                         capacityText + "\n" +
                                         waitlistText +
-                                        "\n\nLottery will run automatically 48 hours before the event."
+                                        "\n\nLottery can be run after registration closes."
                         );
 
                         if (showMap) {
@@ -448,17 +463,25 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
+        // Organizer ID for logging
+        String organizerId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : "unknown";
+
         fdb.collection("events").document(eventId)
                 .collection("waitlist")
                 .whereEqualTo("state", "waiting")
                 .get()
                 .addOnSuccessListener(snap -> {
+
                     if (snap == null) {
                         Toast.makeText(getContext(), "Failed to load waitlist.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
                     List<String> candidates = new ArrayList<>();
+
+                    // Gather candidates
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String uid = d.getId();
                         if (TextUtils.isEmpty(uid)) {
@@ -468,7 +491,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         if (!TextUtils.isEmpty(uid)) candidates.add(uid);
                     }
 
-                    // Remove duplicates just in case
+                    // Deduplicate
                     candidates = new ArrayList<>(new java.util.LinkedHashSet<>(candidates));
 
                     if (candidates.isEmpty()) {
@@ -476,22 +499,23 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         return;
                     }
 
-                    // Shuffle and pick winners
+                    // Pick winners
                     Collections.shuffle(candidates, new Random());
                     int numberOfWinner = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, numberOfWinner);
-//                    List<String> losers = candidates.subList(numberOfWinner, candidates.size());
 
-                    // Losers = all candidates who weren't picked
+                    // Losers = everyone else
                     List<String> losers = new ArrayList<>(candidates);
                     losers.removeAll(winners);
 
                     WriteBatch batch = fdb.batch();
 
-                    // Process winners
+                    // ------------------------------------------------------------
+                    // WINNERS
+                    // ------------------------------------------------------------
                     for (String uid : winners) {
 
-                        //Log winner to lotteryResults/winners
+                        // ⬅️ Win log in event.lotteryResults
                         DocumentReference lotteryWinnerRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -505,7 +529,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         winnerLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryWinnerRef, winnerLog);
 
-
+                        // ⬅️ Create invite
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
@@ -516,7 +540,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // Send notification to user
+                        // ⬅️ User notification
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -531,7 +555,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // Update waitlist entry
+                        // ⬅️ waitlist update
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -541,13 +565,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("state", "invited");
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
+
+                        // --------------------------------------------------------
+                        // NEW: GLOBAL notification_logs entry
+                        // --------------------------------------------------------
+                        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+                        Map<String, Object> logData = new HashMap<>();
+                        logData.put("eventId", eventId);
+                        logData.put("timestamp", FieldValue.serverTimestamp());
+                        logData.put("organizerId", organizerId);
+                        logData.put("recipientId", uid);
+                        logData.put("notificationType", "lottery_win");
+                        logData.put("notificationTitle", "You were selected!");
+                        logData.put("notificationMessage", "You won the lottery for " + eventName + ".");
+
+                        batch.set(logRef, logData);
                     }
 
-
-                    // Process losers
+                    // ------------------------------------------------------------
+                    // LOSERS
+                    // ------------------------------------------------------------
                     for (String uid : losers) {
 
-                        //  Log loser to lotteryResults/losers
+                        // ⬅️ Loser log in event.lotteryResults
                         DocumentReference lotteryLoserRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -561,7 +602,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         loserLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryLoserRef, loserLog);
 
-                        // Send notification to loser
+                        // ⬅️ Notification to loser
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -576,7 +617,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // 3. Update waitlist entry
+                        // ⬅️ Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -586,13 +627,32 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         wlUpdate.put("lastResult", "not_selected");
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
+
+                        // --------------------------------------------------------
+                        // NEW: GLOBAL notification_logs entry
+                        // --------------------------------------------------------
+                        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+                        Map<String, Object> logData = new HashMap<>();
+                        logData.put("eventId", eventId);
+                        logData.put("timestamp", FieldValue.serverTimestamp());
+                        logData.put("organizerId", organizerId);
+                        logData.put("recipientId", uid);
+                        logData.put("notificationType", "lottery_loss");
+                        logData.put("notificationTitle", "Not Selected This Time");
+                        logData.put("notificationMessage", "You were not selected in the lottery for " + eventName + ".");
+
+                        batch.set(logRef, logData);
                     }
 
-
+                    // ------------------------------------------------------------
+                    // COMMIT BATCH
+                    // ------------------------------------------------------------
                     batch.commit()
                             .addOnSuccessListener(u -> {
-                                Toast.makeText(getContext(), "Lottery sent to " + numberOfWinner + " entrant(s).", Toast.LENGTH_SHORT).show();
-
+                                Toast.makeText(getContext(),
+                                        "Lottery sent to " + numberOfWinner + " entrant(s).",
+                                        Toast.LENGTH_SHORT).show();
 
                                 db.collection("events").document(eventId)
                                         .update("lotteryDone", true);
@@ -601,16 +661,18 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 updateLotteryButtonUi();
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "Batch commit failed", e);
-                                Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                Log.e("LotteryFix", "Batch commit failed", e);
+                                Toast.makeText(getContext(),
+                                        "Failed: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
                             });
 
-
-
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
     }
+
 
     /**
      * Sends a notification to all entrants with a given invite status,
@@ -706,10 +768,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
         if (!isAdded() || getContext() == null || buttonSendLottery == null) return;
 
         if (Boolean.TRUE.equals(lotteryDone)) {
-            // Lottery already sent → grey button
-            buttonSendLottery.setText("Send Lottery");
-            buttonSendLottery.setEnabled(true); // clickable for toast
-
+            // Lottery is finished
+            buttonSendLottery.setText("LOTTERY SENT");
+            buttonSendLottery.setEnabled(false);
             buttonSendLottery.setBackgroundTintList(
                     ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
             );
@@ -718,18 +779,59 @@ public class OrganizerEventDetailsFragment extends Fragment {
             );
 
         } else {
-            // Lottery not sent yet → normal black button
+            // Always show SEND LOTTERY
             buttonSendLottery.setText("SEND LOTTERY");
-            buttonSendLottery.setEnabled(true);
 
-            buttonSendLottery.setBackgroundTintList(
-                    ContextCompat.getColorStateList(requireContext(), android.R.color.black)
-            );
-            buttonSendLottery.setTextColor(
-                    ContextCompat.getColor(requireContext(), android.R.color.white)
-            );
+            // Style depends on if registration closed
+            if (!registrationClosed) {
+                // Greyed out but still clickable
+                buttonSendLottery.setEnabled(true);
+                buttonSendLottery.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
+                );
+                buttonSendLottery.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white)
+                );
+            } else {
+                // Active + real black button
+                buttonSendLottery.setEnabled(true);
+                buttonSendLottery.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.black)
+                );
+                buttonSendLottery.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white)
+                );
+            }
         }
     }
+    /**
+     * Logs a notification to the top-level "notification_logs" collection.
+     */
+    private void logNotificationToGlobal(
+            String eventId,
+            String organizerId,
+            String recipientId,
+            String type,
+            String title,
+            String message
+    ) {
+        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
+        DocumentReference logRef = fdb.collection("notification_logs").document();
+
+        Map<String, Object> log = new HashMap<>();
+        log.put("eventId", eventId);
+        log.put("timestamp", FieldValue.serverTimestamp());
+        log.put("organizerId", organizerId);
+        log.put("recipientId", recipientId);
+        log.put("notificationType", type);
+        log.put("notificationTitle", title);
+        log.put("notificationMessage", message);
+
+        logRef.set(log)
+                .addOnSuccessListener(a -> Log.d("NOTIF_LOG", "Log created"))
+                .addOnFailureListener(e -> Log.e("NOTIF_LOG", "Error creating log", e));
+    }
+
 
 
 }
