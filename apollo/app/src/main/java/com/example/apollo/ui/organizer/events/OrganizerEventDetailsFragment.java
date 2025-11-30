@@ -81,6 +81,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
     private boolean showMap = false;
     private String organizerId;
     private Boolean lotteryDone = false;
+    private boolean registrationClosed = false;
 
     /**
      * Called when the fragment’s view is created.
@@ -114,19 +115,33 @@ public class OrganizerEventDetailsFragment extends Fragment {
         mapView = view.findViewById(R.id.map);
 
         buttonSendLottery.setOnClickListener(v -> {
+
             if (eventId == null || eventId.isEmpty()) {
                 Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // if lottery already sent → just toast
+            // Registration still open → allow click but show toast
+            if (!registrationClosed) {
+                Toast.makeText(
+                        getContext(),
+                        "Registration must be closed before running the lottery.",
+                        Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+
+            // Already done
             if (Boolean.TRUE.equals(lotteryDone)) {
                 Toast.makeText(getContext(), "Lottery already sent.", Toast.LENGTH_SHORT).show();
-            } else {
-                // not sent yet → open dialog
-                askForWinnerCountAndRunLottery(eventId, eventName);
+                return;
             }
+
+            // Run dialog to choose winners
+            askForWinnerCountAndRunLottery(eventId, eventName);
         });
+
+
 
         Button buttonNotifySelected = view.findViewById(R.id.buttonNotifySelected);
         Button buttonNotifyCancelled = view.findViewById(R.id.buttonNotifyCancelled);
@@ -285,31 +300,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         updateLotteryButtonUi();
 
 
-                        if (!lotteryDone && registrationClose != null
-                                && eventCapacity != null && eventCapacity > 0 && time != null) {
+                        lotteryDone = document.getBoolean("lotteryDone");
+                        if (lotteryDone == null) lotteryDone = false;
+
+// figure out if registration has closed yet
+                        registrationClosed = false;
+                        if (registrationClose != null && time != null) {
                             try {
                                 String registrationCloseDateTime = registrationClose + " " + time;
-
                                 SimpleDateFormat fmt =
-                                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+                                        new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.getDefault());
 
-                                long registrationCloseMillis =
-                                        fmt.parse(registrationCloseDateTime).getTime();
-
+                                long closeMillis = fmt.parse(registrationCloseDateTime).getTime();
                                 long now = System.currentTimeMillis();
-                                long lotteryTime = registrationCloseMillis - 48L * 60L * 60L * 1000L; // 48 hours before
-
-                                if (now >= lotteryTime) {
-                                    // Use eventCapacity as number of winners
-                                    runLottery(eventId, eventName, eventCapacity.intValue());
-                                    // Mark lottery as done so we don't run it twice
-                                    eventRef.update("lotteryDone", true);
-                                }
+                                registrationClosed = now >= closeMillis;   // 👈 true only AFTER close time
 
                             } catch (ParseException e) {
-                                Log.e(TAG, "Failed to parse registrationClose/time for lottery timing", e);
+                                Log.e(TAG, "Failed to parse registrationClose/time for registrationClosed", e);
+                                registrationClosed = false;
                             }
                         }
+
+// now update the button based on lotteryDone + registrationClosed
+                        updateLotteryButtonUi();
+
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             Glide.with(this).load(posterUrl).into(eventPosterImage);
                         }
@@ -341,7 +355,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         "Registration: " + registrationPeriod + "\n" +
                                         capacityText + "\n" +
                                         waitlistText +
-                                        "\n\nLottery will run automatically 48 hours before the event."
+                                        "\n\nLottery can be run after registration closes."
                         );
 
                         if (showMap) {
@@ -706,10 +720,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
         if (!isAdded() || getContext() == null || buttonSendLottery == null) return;
 
         if (Boolean.TRUE.equals(lotteryDone)) {
-            // Lottery already sent → grey button
-            buttonSendLottery.setText("Send Lottery");
-            buttonSendLottery.setEnabled(true); // clickable for toast
-
+            // Lottery is finished
+            buttonSendLottery.setText("LOTTERY SENT");
+            buttonSendLottery.setEnabled(false);
             buttonSendLottery.setBackgroundTintList(
                     ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
             );
@@ -718,16 +731,29 @@ public class OrganizerEventDetailsFragment extends Fragment {
             );
 
         } else {
-            // Lottery not sent yet → normal black button
+            // Always show SEND LOTTERY
             buttonSendLottery.setText("SEND LOTTERY");
-            buttonSendLottery.setEnabled(true);
 
-            buttonSendLottery.setBackgroundTintList(
-                    ContextCompat.getColorStateList(requireContext(), android.R.color.black)
-            );
-            buttonSendLottery.setTextColor(
-                    ContextCompat.getColor(requireContext(), android.R.color.white)
-            );
+            // Style depends on if registration closed
+            if (!registrationClosed) {
+                // Greyed out but still clickable
+                buttonSendLottery.setEnabled(true);
+                buttonSendLottery.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
+                );
+                buttonSendLottery.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white)
+                );
+            } else {
+                // Active + real black button
+                buttonSendLottery.setEnabled(true);
+                buttonSendLottery.setBackgroundTintList(
+                        ContextCompat.getColorStateList(requireContext(), android.R.color.black)
+                );
+                buttonSendLottery.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.white)
+                );
+            }
         }
     }
 
