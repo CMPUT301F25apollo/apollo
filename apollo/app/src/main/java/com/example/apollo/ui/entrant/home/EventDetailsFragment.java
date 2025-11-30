@@ -29,29 +29,30 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.NavController;
-import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
-import com.example.apollo.ui.login.LoginActivity;
 import com.example.apollo.R;
+import com.example.apollo.ui.login.LoginActivity;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -60,13 +61,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.firebase.firestore.SetOptions;
-
-
-
 
 public class EventDetailsFragment extends Fragment {
 
@@ -82,9 +76,7 @@ public class EventDetailsFragment extends Fragment {
     private String uid;
     private HashMap<String, Object> pendingData;
 
-
     private FusedLocationProviderClient fusedLocationClient;
-    private Button buttonGetLocation;
 
     // derived UI state
     private enum State { NONE, WAITING, INVITED, REGISTERED }
@@ -109,12 +101,10 @@ public class EventDetailsFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        ImageView qrButton = view.findViewById(R.id.qrButton);
-        qrButton.setOnClickListener(v -> showQrCodeModal());
-
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
 
-
+        ImageView qrButton = view.findViewById(R.id.qrButton);
+        qrButton.setOnClickListener(v -> showQrCodeModal());
 
         textEventTitle = view.findViewById(R.id.textEventTitle);
         textEventDescription = view.findViewById(R.id.textEventDescription);
@@ -146,7 +136,7 @@ public class EventDetailsFragment extends Fragment {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
             observeUserEventState();   // live state from invites/registrations/waitlist
-            wireJoinLeaveAction();     // join/leave with extra server-side checks
+            wireJoinLeaveAction();     // join/leave + sign-up logic
         }
 
         return view;
@@ -186,6 +176,7 @@ public class EventDetailsFragment extends Fragment {
                         String timeText = (time != null) ? time : "N/A";
                         String priceText = (price != null) ? "$" + price : "Free";
                         String locationText = (location != null) ? location : "TBD";
+
                         textEventTitle.setText(title != null ? title : "Untitled Event");
                         textEventDescription.setText(description != null ? description : "No description available");
                         textEventSummary.setText(
@@ -197,6 +188,7 @@ public class EventDetailsFragment extends Fragment {
                                         "\n" + capacityText +
                                         "\n" + waitlistText
                         );
+
                         if (waitlistCapacity != null) {
                             db.collection("events").document(eventId)
                                     .collection("waitlist")
@@ -265,22 +257,21 @@ public class EventDetailsFragment extends Fragment {
                         } catch (Exception e) {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
-                        
-                        // update derived flags used by wireJoinLeaveAction() + renderButton()
-                        registrationNotStartedYet = notStarted;
-                        registrationEnded = ended;
-                        registrationOpenNow = isOpen;
-                        
-                        // re-render button now that all 3 flags are set
-                        renderButton();
-                        
+
+                        if (isClosed) {
+                            buttonJoinWaitlist.setText("Registration is closed");
+                            buttonJoinWaitlist.setEnabled(false);
+                            buttonJoinWaitlist.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
+                            buttonJoinWaitlist.setTextColor(
+                                    ContextCompat.getColor(requireContext(), android.R.color.white));
+                        }
+
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
-
-
     }
 
     // ========= live state =========
@@ -336,7 +327,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-
     private void getUserLocation(LocationCallback callback) {
 
         if (ActivityCompat.checkSelfPermission(requireContext(),
@@ -347,9 +337,6 @@ public class EventDetailsFragment extends Fragment {
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     2002
             );
-
-
-            //            callback.onComplete(null, null);
             return;
         }
 
@@ -361,10 +348,9 @@ public class EventDetailsFragment extends Fragment {
                         callback.onComplete(null, null);
                     }
                 })
-                .addOnFailureListener(e -> {
-                    callback.onComplete(null, null);
-                });
+                .addOnFailureListener(e -> callback.onComplete(null, null));
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -415,25 +401,42 @@ public class EventDetailsFragment extends Fragment {
 
     }
 
-
-
-    // ========= join/leave logic (unchanged behavior for WAITING) =========
+    // ========= join/leave + SIGN UP logic =========
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
-            if (!registrationOpenNow) {
-                toast("You can only join the waitlist during the registration period.");
-                return;
-            }
-            if (state == State.INVITED) {
-                toast("You’ve already been invited. Check Notifications to proceed.");
-                return;
-            }
             if (state == State.REGISTERED) {
                 toast("You’re already registered for this event.");
                 return;
             }
+
+            if (state == State.INVITED) {
+                // SIGN UP flow:
+                // - Create registrations/{uid}
+                // - Delete waitlist/{uid}
+                // - Delete invites/{uid}
+                setLoading(true);
+                HashMap<String, Object> regData = new HashMap<>();
+                regData.put("registeredAt", FieldValue.serverTimestamp());
+
+                WriteBatch batch = db.batch();
+                batch.set(registrationRef(), regData, SetOptions.merge());
+                batch.delete(waitlistRef());
+                batch.delete(inviteRef());
+
+                batch.commit()
+                        .addOnSuccessListener(ok -> {
+                            toast("You’re registered for this event!");
+                            setLoading(false);
+                        })
+                        .addOnFailureListener(e -> {
+                            toast("Failed to sign up: " + e.getMessage());
+                            setLoading(false);
+                        });
+                return;
+            }
+
             if (state == State.WAITING) {
-                // leave
+                // leave waitlist
                 setLoading(true);
                 waitlistRef().delete()
                         .addOnSuccessListener(ok -> {
@@ -445,7 +448,7 @@ public class EventDetailsFragment extends Fragment {
                             setLoading(false);
                         });
             } else {
-                // join as waiting
+                // state == NONE → join as waiting
                 setLoading(true);
                 HashMap<String, Object> data = new HashMap<>();
                 data.put("joinedAt", FieldValue.serverTimestamp());
@@ -453,7 +456,7 @@ public class EventDetailsFragment extends Fragment {
                 data.put("lastResult", null);
                 pendingData = data;
 
-                if (isGeolocation) {
+                if (isGeolocation != null && isGeolocation) {
 
                     getUserLocation((lat, lon) -> {
 
@@ -480,12 +483,12 @@ public class EventDetailsFragment extends Fragment {
                                 newPoint.put("lon", lon);
                                 coords.add(newPoint);
 
-                                // ⭐ Update the event's coordinates
+                                // Update the event's coordinates
                                 eventRef.update("coordinate", coords)
                                         .addOnSuccessListener(a -> {
                                             Log.d("Geo", "Coordinate appended.");
 
-                                            // ⭐ NOW save the entrant to waitlist
+                                            // NOW save the entrant to waitlist
                                             waitlistRef().set(data, SetOptions.merge())
                                                     .addOnSuccessListener(ok -> {
                                                         toast("Joined waitlist");
@@ -534,10 +537,19 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-
     private DocumentReference waitlistRef() {
         return db.collection("events").document(eventId)
                 .collection("waitlist").document(uid);
+    }
+
+    private DocumentReference inviteRef() {
+        return db.collection("events").document(eventId)
+                .collection("invites").document(uid);
+    }
+
+    private DocumentReference registrationRef() {
+        return db.collection("events").document(eventId)
+                .collection("registrations").document(uid);
     }
 
     private void listenToWaitlistCount(String eventId) {
@@ -563,7 +575,6 @@ public class EventDetailsFragment extends Fragment {
                             return;
                         }
 
-
                         if (!isAdded() || getContext() == null) {
                             Log.w("EventDetailsFragment", "waitlist listener: fragment not attached, skipping UI update");
                             return;
@@ -587,8 +598,6 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-
-
     // ========= UI helpers =========
     private void renderButton() {
 
@@ -610,12 +619,13 @@ public class EventDetailsFragment extends Fragment {
                 break;
 
             case INVITED:
-                buttonJoinWaitlist.setText("INVITED — CHECK NOTIFICATIONS");
-                buttonJoinWaitlist.setEnabled(false);
+                // Now acts as SIGN UP button
+                buttonJoinWaitlist.setText("SIGN UP");
+                buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(ctx, android.R.color.darker_gray));
+                        ContextCompat.getColorStateList(ctx, R.color.lightblue));
                 buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(ctx, android.R.color.white));
+                        ContextCompat.getColor(ctx, android.R.color.black));
                 break;
 
             case WAITING:
@@ -666,10 +676,10 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-
     private void setLoading(boolean loading) {
         buttonJoinWaitlist.setEnabled(!loading);
         if (loading) buttonJoinWaitlist.setText("Please wait…");
+        else renderButton(); // re-render based on current state
     }
 
     private void toast(String m) {
@@ -718,6 +728,7 @@ public class EventDetailsFragment extends Fragment {
             return null;
         }
     }
+
     private interface LocationCallback {
         void onComplete(@Nullable Double lat, @Nullable Double lon);
     }

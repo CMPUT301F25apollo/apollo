@@ -186,39 +186,30 @@ public class NotificationsFragment extends Fragment {
     private void declineInvite(String eventId, String notificationId) {
         String uid = auth.getCurrentUser().getUid();
 
-        DocumentReference inviteRef = db.collection("events")
+        DocumentReference declinedRef = db.collection("events")
                 .document(eventId)
-                .collection("invites")
+                .collection("declined")
                 .document(uid);
 
-        DocumentReference waitRef = db.collection("events")
-                .document(eventId)
-                .collection("waitlist")
-                .document(uid);
+        HashMap<String, Object> declinedData = new HashMap<>();
+        declinedData.put("state", "declined");
+        declinedData.put("declinedAt", FieldValue.serverTimestamp());
 
-        DocumentReference notifRef = db.collection("users")
-                .document(uid)
-                .collection("notifications")
-                .document(notificationId);
-
-        // Set their status as declined
-        HashMap<String, Object> update = new HashMap<>();
-        update.put("state", "declined");
-        update.put("updatedAt", FieldValue.serverTimestamp());
-
-        waitRef.set(update)
+        declinedRef.set(declinedData)
                 .addOnSuccessListener(ok -> {
-                    inviteRef.delete();
-                    notifRef.delete();
+                    db.collection("events").document(eventId)
+                            .collection("invites").document(uid).delete();
 
+                    db.collection("events").document(eventId)
+                            .collection("waitlist").document(uid).delete();
 
-                    waitRef.delete(); // fully remove from waitlist
+                    db.collection("users").document(uid)
+                            .collection("notifications").document(notificationId).delete();
 
                     Toast.makeText(getContext(), "Invitation declined.", Toast.LENGTH_SHORT).show();
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                });
     }
+
 
     /**
      * Called when the fragment becomes visible.
