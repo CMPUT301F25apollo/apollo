@@ -37,6 +37,7 @@ public class Event {
     private String eventPosterUrl;
 
     // Empty constructor... required for Firebase or data binding
+
     public Event() {}
 
     /**

@@ -1,4 +1,4 @@
-package com.example.apollo.ui.entrant.home;
+package com.example.apollo.ui.home;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -33,45 +33,42 @@ import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
 
 import java.util.concurrent.ExecutionException;
-
 /**
- * Fragment responsible for handling live QR code scanning using CameraX and ML Kit.
- * <p>
- * When a QR code containing an event ID is scanned (formatted as {@code eventId:<id>}),
- * the fragment verifies the event's existence in Firestore and navigates to
- * the event details screen.
+ * QrScannerFragment.java
+ *
+ * This fragment provides a live QR code scanner using CameraX and Google ML Kit.
+ * When a QR code is detected, the app extracts its value (usually an event ID)
+ * and navigates to the event details screen if the event exists in Firestore.
+ *
+ * Technologies used:
+ * - CameraX: Handles camera input and preview lifecycle.
+ * - ML Kit Barcode Scanning: Processes camera frames to detect QR codes.
+ * - Firestore: Verifies that scanned event IDs exist in the database.
+ * - AndroidX Navigation: Manages transitions between the Home and Event Details screens.
+ *
+ * Design Notes:
+ * This fragment follows an MVC-like structure where Firestore acts as the Model (data),
+ * the camera preview is the View, and this fragment acts as the Controller.
+ * The camera lifecycle is automatically managed using CameraX.
+ *
+ * Known Issues:
+ * - No loading indicator or visual feedback during scanning
+ * - Processes only one QR code per frame (skips duplicates)
+ * - No error dialog for invalid or unrecognized codes
  */
+
 public class QrScannerFragment extends Fragment {
 
-    /** Displays the live camera feed for scanning. */
     private PreviewView previewView;
-
-    /** Firestore instance used to verify scanned event IDs. */
     private FirebaseFirestore db;
-
-    /** Flag indicating whether a frame is currently being processed to avoid overlap. */
     private boolean isProcessing = false;
 
-    /**
-     * Activity result launcher for requesting the CAMERA permission at runtime.
-     * <p>
-     * If permission is granted, the camera starts immediately. Otherwise, an error is logged.
-     */
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) startCamera();
                 else Log.e("QR", "Camera permission denied");
             });
 
-    /**
-     * Inflates the fragment layout, initializes Firestore, checks for camera permission,
-     * and sets up the back button behavior.
-     *
-     * @param inflater  LayoutInflater used to inflate the layout
-     * @param container Optional parent view container
-     * @param savedInstanceState previously saved instance state, if any
-     * @return the inflated view hierarchy for this fragment
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -87,19 +84,16 @@ public class QrScannerFragment extends Fragment {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
 
-        // Back button returns user to the previous fragment (Home)
         view.findViewById(R.id.back_button).setOnClickListener(v -> {
             NavController navController = NavHostFragment.findNavController(this);
-            navController.popBackStack();
+            navController.popBackStack(); // goes back to Home
         });
 
         return view;
     }
-
     /**
-     * Starts the CameraX provider asynchronously and binds it once available.
-     * <p>
-     * Handles any exceptions that occur during camera initialization.
+     * Starts the camera asynchronously using CameraX. Once available,
+     * binds the preview and image analysis use cases.
      */
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext());
@@ -115,10 +109,9 @@ public class QrScannerFragment extends Fragment {
     }
 
     /**
-     * Binds the camera lifecycle to this fragment and sets up a real-time analyzer
-     * that uses ML Kit to detect barcodes from the preview frames.
+     * Binds the camera preview and barcode analysis pipeline to the fragment's lifecycle.
      *
-     * @param cameraProvider CameraX provider that manages the camera lifecycle
+     * @param cameraProvider The CameraX provider managing camera lifecycles.
      */
     private void bindCamera(ProcessCameraProvider cameraProvider) {
         cameraProvider.unbindAll();
@@ -167,14 +160,13 @@ public class QrScannerFragment extends Fragment {
 
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
     }
-
     /**
-     * Processes a successfully scanned QR code string. If it begins with {@code eventId:},
-     * the corresponding event document is fetched from Firestore. If found, the user
-     * is navigated to the event details screen.
-     *
-     * @param rawValue the decoded text value from the scanned QR code
+     * Handles a successfully scanned QR code.
+     * If the code matches the expected format it checks Firestore
+     * for a matching event and navigates to its details page.
+     * @param rawValue The decoded string value from the QR code.
      */
+
     private void handleScannedCode(String rawValue) {
         Log.d("QR", "Scanned: " + rawValue);
 

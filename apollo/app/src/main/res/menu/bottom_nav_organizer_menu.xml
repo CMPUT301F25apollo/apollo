@@ -2,21 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/navigation_notifications"
-        android:icon="@drawable/bell_school"
-        android:title="@string/title_notifications" />
-
-    <item
         android:id="@+id/navigation_organizer_events"
         android:icon="@drawable/home"
         android:title="Events" />
 
     <item
+        android:id="@+id/navigation_organizer_add_event"
+        android:icon="@android:drawable/ic_menu_add"
+        android:title="Add Event" />
+
+    <item
         android:id="@+id/navigation_profile"
         android:icon="@drawable/user"
         android:title="@string/title_profile" />
-
-
-
 
 </menu>
