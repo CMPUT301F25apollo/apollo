@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -53,6 +54,14 @@ public class UpcomingEventsFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
 
         loadUpcomingEvents();
+
+        adapter.setOnEventClickListener(event -> {
+            Bundle bundle = new Bundle();
+            bundle.putString("eventId", event.getId());
+
+            NavHostFragment.findNavController(UpcomingEventsFragment.this)
+                    .navigate(R.id.navigation_event_details, bundle);
+        });
     }
 
     private void loadUpcomingEvents() {

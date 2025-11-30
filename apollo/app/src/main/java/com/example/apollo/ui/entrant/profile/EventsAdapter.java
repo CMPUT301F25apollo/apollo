@@ -46,24 +46,19 @@ public class EventsAdapter extends RecyclerView.Adapter<EventsAdapter.EventViewH
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
         Event event = events.get(position);
 
-        // Title
-        if (event.getTitle() != null) {
-            holder.title.setText(event.getTitle());
-        } else {
-            holder.title.setText("Untitled Event");
-        }
+        // Set title
+        holder.title.setText(event.getTitle() != null ? event.getTitle() : "Untitled Event");
 
-        // Poster Image
+        // Load poster or placeholder
         if (event.getEventPosterUrl() != null && !event.getEventPosterUrl().trim().isEmpty()) {
             Glide.with(holder.poster.getContext())
                     .load(event.getEventPosterUrl())
                     .into(holder.poster);
         } else {
-            // placeholder for missing image
             holder.poster.setImageResource(R.drawable.placeholder_image);
         }
 
-        // Click event
+        // Click action
         holder.container.setOnClickListener(v -> {
             if (listener != null) listener.onEventClick(event);
         });
@@ -82,7 +77,6 @@ public class EventsAdapter extends RecyclerView.Adapter<EventsAdapter.EventViewH
 
         EventViewHolder(@NonNull View itemView) {
             super(itemView);
-
             container = itemView.findViewById(R.id.eventCard);
             title = itemView.findViewById(R.id.eventTitle);
             poster = itemView.findViewById(R.id.eventPosterImage);
