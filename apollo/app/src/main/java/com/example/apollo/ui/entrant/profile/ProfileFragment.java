@@ -117,6 +117,24 @@ public class ProfileFragment extends Fragment {
                     NavHostFragment.findNavController(ProfileFragment.this)
                             .navigate(R.id.action_navigation_profile_to_navigation_settings)            );
 
+            // Upcoming events
+            v.findViewById(R.id.rowUpcoming).setOnClickListener(view ->
+                    NavHostFragment.findNavController(ProfileFragment.this)
+                            .navigate(R.id.action_navigation_profile_to_upcomingEventsFragment)
+            );
+
+            // Waitlisted events
+            v.findViewById(R.id.rowWaitlisted).setOnClickListener(view ->
+                    NavHostFragment.findNavController(ProfileFragment.this)
+                            .navigate(R.id.action_navigation_profile_to_waitlistedEventsFragment)
+            );
+
+            // History events
+            v.findViewById(R.id.rowHistory).setOnClickListener(view ->
+                    NavHostFragment.findNavController(ProfileFragment.this)
+                            .navigate(R.id.action_navigation_profile_to_historyEventsFragment)
+            );
+
             Button btnLogout = v.findViewById(R.id.btnLogout);
             btnLogout.setOnClickListener(new View.OnClickListener() {
                 @Override
