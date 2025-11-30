@@ -168,7 +168,7 @@ public class EventDetailsFragment extends Fragment {
         DocumentReference waitRef = eventRef.collection("waitlist").document(uid);
 
         Map<String, Object> regData = new HashMap<>();
-        regData.put("registeredAt", FieldValue.serverTimestamp()git );
+        regData.put("registeredAt", FieldValue.serverTimestamp());
         regData.put("uid", uid);
 
         regRef.set(regData)
