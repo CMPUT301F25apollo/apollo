@@ -89,6 +89,11 @@ public class EventDetailsFragment extends Fragment {
     // derived UI state
     private enum State { NONE, WAITING, INVITED, REGISTERED }
     private State state = State.NONE;
+    private boolean registrationOpenNow = true;
+    private boolean registrationNotStartedYet = false;
+    private boolean registrationEnded = false;
+    private String registrationOpenText = null;
+
 
     // keep latest snapshots to avoid races
     private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null, isGeolocation = null;
@@ -213,38 +218,59 @@ public class EventDetailsFragment extends Fragment {
                                             Log.e("Firestore", "Failed to check waitlist capacity", e));
                         }
 
-                        boolean isClosed = false;
+                        // Save for UI text later
+                        registrationOpenText = registrationOpen;
+
+                        boolean notStarted = false;
+                        boolean ended = false;
+                        boolean isOpen = true;
 
                         try {
                             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
-                            Date today = new Date();
+                            Date today = sdf.parse(sdf.format(new Date())); // strip time
 
                             Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
                             Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
 
-                            if (closeDate != null && closeDate.before(today)) {
-                                // past event = closed
-                                isClosed = true;
-                            } else if (openDate != null && openDate.after(today)) {
-                                // not started yet → treat as open
-                                isClosed = false;
+                            if (openDate != null && closeDate != null) {
+                                if (today.before(openDate)) {
+                                    notStarted = true;
+                                    isOpen = false;
+                                } else if (today.after(closeDate)) {
+                                    ended = true;
+                                    isOpen = false;
+                                } else {
+                                    isOpen = true;  // between open/close
+                                }
+                            } else if (openDate != null) {
+                                if (today.before(openDate)) {
+                                    notStarted = true;
+                                    isOpen = false;
+                                } else {
+                                    isOpen = true;
+                                }
+                            } else if (closeDate != null) {
+                                if (today.after(closeDate)) {
+                                    ended = true;
+                                    isOpen = false;
+                                } else {
+                                    isOpen = true;
+                                }
                             } else {
-                                // ongoing or missing dates → treat as open (still available)
-                                isClosed = false;
+                                // no dates -> always open
+                                isOpen = true;
                             }
                         } catch (Exception e) {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
 
-                        if (isClosed){
-                            buttonJoinWaitlist.setText("Registration is closed");
-                            buttonJoinWaitlist.setEnabled(false);
-                            buttonJoinWaitlist.setEnabled(false);
-                            buttonJoinWaitlist.setBackgroundTintList(
-                                    ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
-                            buttonJoinWaitlist.setTextColor(
-                                    ContextCompat.getColor(requireContext(), android.R.color.white));
-                        }
+                        registrationNotStartedYet = notStarted;
+                        registrationEnded = ended;
+                        registrationOpenNow = isOpen;
+
+// re-render button now that all 3 flags are set
+                        renderButton();
+
 
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
@@ -392,6 +418,10 @@ public class EventDetailsFragment extends Fragment {
     // ========= join/leave logic (unchanged behavior for WAITING) =========
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
+            if (!registrationOpenNow) {
+                toast("You can only join the waitlist during the registration period.");
+                return;
+            }
             if (state == State.INVITED) {
                 toast("You’ve already been invited. Check Notifications to proceed.");
                 return;
@@ -595,14 +625,42 @@ public class EventDetailsFragment extends Fragment {
                         ContextCompat.getColor(ctx, android.R.color.white));
                 break;
 
+
             case NONE:
             default:
-                buttonJoinWaitlist.setText("JOIN WAITLIST");
-                buttonJoinWaitlist.setEnabled(true);
-                buttonJoinWaitlist.setBackgroundTintList(
-                        ContextCompat.getColorStateList(ctx, R.color.lightblue));
-                buttonJoinWaitlist.setTextColor(
-                        ContextCompat.getColor(ctx, android.R.color.black));
+                if (registrationNotStartedYet) {
+                    buttonJoinWaitlist.setText(
+                            "REGISTRATION OPENS ON " + (registrationOpenText != null ? registrationOpenText : "")
+                    );
+                    buttonJoinWaitlist.setEnabled(false);
+                    buttonJoinWaitlist.setBackgroundTintList(
+                            ContextCompat.getColorStateList(ctx, android.R.color.darker_gray)
+                    );
+                    buttonJoinWaitlist.setTextColor(
+                            ContextCompat.getColor(ctx, android.R.color.white)
+                    );
+                } else if (registrationEnded) {
+                    buttonJoinWaitlist.setText("REGISTRATION ENDED");
+                    buttonJoinWaitlist.setEnabled(false);
+                    buttonJoinWaitlist.setBackgroundTintList(
+                            ContextCompat.getColorStateList(ctx, android.R.color.darker_gray)
+                    );
+                    buttonJoinWaitlist.setTextColor(
+                            ContextCompat.getColor(ctx, android.R.color.white)
+                    );
+                } else {
+                    buttonJoinWaitlist.setText("JOIN WAITLIST");
+                    buttonJoinWaitlist.setEnabled(true);
+                    buttonJoinWaitlist.setBackgroundTintList(
+                            ContextCompat.getColorStateList(ctx, R.color.lightblue)
+                    );
+                    buttonJoinWaitlist.setTextColor(
+                            ContextCompat.getColor(ctx, android.R.color.black)
+                    );
+                }
+
+
+
         }
     }
 
