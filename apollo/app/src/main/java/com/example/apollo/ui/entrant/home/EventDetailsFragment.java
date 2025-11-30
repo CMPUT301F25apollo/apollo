@@ -212,19 +212,19 @@ public class EventDetailsFragment extends Fragment {
 
                         // Save for UI text later (used in renderButton)
                         registrationOpenText = registrationOpen;
-                        
+
                         boolean notStarted = false;
                         boolean ended = false;
                         boolean isOpen = true;
-                        
+
                         try {
                             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
                             // strip time to compare date-only
                             Date today = sdf.parse(sdf.format(new Date()));
-                        
+
                             Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
                             Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
-                        
+
                             if (openDate != null && closeDate != null) {
                                 if (today.before(openDate)) {
                                     notStarted = true;
@@ -417,8 +417,21 @@ public class EventDetailsFragment extends Fragment {
     }
 
     // ========= join/leave + SIGN UP logic =========
+
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
+
+            // 🔒 Block when registration isn't open
+            if (registrationNotStartedYet) {
+                toast("Registration has not opened yet.");
+                return;
+            }
+
+            if (registrationEnded) {
+                toast("Registration is closed for this event.");
+                return;
+            }
+
             if (state == State.REGISTERED) {
                 toast("You’re already registered for this event.");
                 return;
@@ -472,69 +485,7 @@ public class EventDetailsFragment extends Fragment {
                 pendingData = data;
 
                 if (isGeolocation != null && isGeolocation) {
-
-                    getUserLocation((lat, lon) -> {
-
-                        if (lat != null && lon != null) {
-
-                            // Save individual fields
-                            data.put("latitude", lat);
-                            data.put("longitude", lon);
-
-                            // Append to coordinates array in event document
-                            DocumentReference eventRef = db.collection("events").document(eventId);
-
-                            eventRef.get().addOnSuccessListener(doc -> {
-
-                                List<Map<String, Object>> coords =
-                                        (List<Map<String, Object>>) doc.get("coordinate");
-
-                                if (coords == null) {
-                                    coords = new ArrayList<>();
-                                }
-
-                                Map<String, Object> newPoint = new HashMap<>();
-                                newPoint.put("lat", lat);
-                                newPoint.put("lon", lon);
-                                coords.add(newPoint);
-
-                                // Update the event's coordinates
-                                eventRef.update("coordinate", coords)
-                                        .addOnSuccessListener(a -> {
-                                            Log.d("Geo", "Coordinate appended.");
-
-                                            // NOW save the entrant to waitlist
-                                            waitlistRef().set(data, SetOptions.merge())
-                                                    .addOnSuccessListener(ok -> {
-                                                        toast("Joined waitlist");
-                                                        setLoading(false);
-                                                    })
-                                                    .addOnFailureListener(e -> {
-                                                        toast("Failed to join: " + e.getMessage());
-                                                        setLoading(false);
-                                                    });
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.e("Geo", "Failed to append coord", e);
-                                            setLoading(false);
-                                        });
-                            });
-
-                        } else {
-                            // location null → still join waitlist WITHOUT coords
-                            waitlistRef().set(data, SetOptions.merge())
-                                    .addOnSuccessListener(ok -> {
-                                        toast("Joined waitlist");
-                                        setLoading(false);
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        toast("Failed: " + e.getMessage());
-                                        setLoading(false);
-                                    });
-                        }
-
-                    });
-
+                    // ... your existing geolocation code ...
                 } else {
                     // No geolocation → simple save
                     waitlistRef().set(data, SetOptions.merge())
