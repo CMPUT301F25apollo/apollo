@@ -624,6 +624,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 .document(uid);
 
                         Map<String, Object> wlUpdate = new HashMap<>();
+                        wlUpdate.put("state", "loser");
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         wlUpdate.put("lastResult", "not_selected");
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
