@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.implementation
+
 plugins {
     alias(libs.plugins.android.application)
     id("com.google.gms.google-services")
@@ -53,14 +55,13 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
 
-    // ML Kit (QR scanner)
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
 
-    // CameraX
-    implementation("androidx.camera:camera-core:1.3.0")
-    implementation("androidx.camera:camera-camera2:1.3.0")
-    implementation("androidx.camera:camera-lifecycle:1.3.0")
-    implementation("androidx.camera:camera-view:1.3.0")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
     // Glide (image loading)
     implementation("com.github.bumptech.glide:glide:4.16.0")
@@ -84,3 +85,4 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.17")
     implementation("androidx.preference:preference:1.2.1")
 }
+

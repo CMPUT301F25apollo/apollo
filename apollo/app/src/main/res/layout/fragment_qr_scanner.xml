@@ -7,14 +7,10 @@
     <!-- Camera Preview -->
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
-    <!-- Back Button -->
+    <!-- Back Button (top-left) -->
     <ImageButton
         android:id="@+id/back_button"
         android:layout_width="48dp"
@@ -40,3 +36,4 @@
         android:visibility="visible" />
 
 </FrameLayout>
+
