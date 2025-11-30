@@ -22,7 +22,7 @@
 
             <LinearLayout
                 android:id="@+id/eventCard"
-                android:layout_width="355dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="40dp"
                 android:background="@drawable/event_card_background"

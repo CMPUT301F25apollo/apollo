@@ -71,8 +71,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:fillViewport="true"
-        android:translationY="10dp"
-        android:paddingBottom="80dp">
+        >
 
         <LinearLayout
             android:id="@+id/eventsContainer"

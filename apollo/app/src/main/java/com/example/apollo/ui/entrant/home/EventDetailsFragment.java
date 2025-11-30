@@ -284,7 +284,6 @@ public class EventDetailsFragment extends Fragment {
     }
 
     // keep the latest view of each signal and then choose the priority
-
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
         if (!isAdded() || getContext() == null || buttonJoinWaitlist == null) {
             Log.w("EventDetailsFragment", "recalcState: fragment not attached, skipping");
