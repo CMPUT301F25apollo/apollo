@@ -136,6 +136,20 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/buttonNotifySelected"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Notify Selected Entrants"
+            android:layout_marginTop="12dp"/>
+
+        <Button
+            android:id="@+id/buttonNotifyCancelled"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Notify Cancelled Entrants"
+            android:layout_marginTop="12dp"/>
+
         <org.osmdroid.views.MapView
             android:id="@+id/map"
             android:layout_width="match_parent"

@@ -128,6 +128,33 @@ public class OrganizerEventDetailsFragment extends Fragment {
             }
         });
 
+        Button buttonNotifySelected = view.findViewById(R.id.buttonNotifySelected);
+        Button buttonNotifyCancelled = view.findViewById(R.id.buttonNotifyCancelled);
+
+        buttonNotifySelected.setOnClickListener(v -> {
+            sendBulkNotification(eventId, "invited",
+                    "You’re still invited!",
+                    "Just a reminder that you were selected for " + eventName + ".");
+        });
+
+        buttonNotifyCancelled.setOnClickListener(v -> {
+            sendBulkNotification(eventId, "cancelled",
+                    "Update about your registration",
+                    "Your registration for " + eventName + " was marked as cancelled.");
+        });
+
+        buttonEditEvent.setOnClickListener(v -> {
+            if (eventId == null || eventId.isEmpty()) {
+                Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Bundle bundle = new Bundle();
+            bundle.putString("eventId", eventId);
+
+            NavController navController = NavHostFragment.findNavController(this);
+            navController.navigate(R.id.navigation_organizer_add_event, bundle);
+        });
 
         Configuration.getInstance().load(
                 getContext(),
@@ -583,6 +610,68 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    /**
+     * Sends a notification to all entrants with a given invite status,
+     * but ONLY if they have not opted out of notifications.
+     */
+    private void sendBulkNotification(String eventId, String status,
+                                      String title, String message) {
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("events")
+                .document(eventId)
+                .collection("invites")
+                .whereEqualTo("status", status)
+                .get()
+                .addOnSuccessListener(snap -> {
+
+                    if (snap == null || snap.isEmpty()) {
+                        Toast.makeText(getContext(), "No entrants with status: " + status, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    List<String> uids = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        uids.add(d.getId());
+                    }
+
+                    // Now check each user’s opt-in setting
+                    for (String uid : uids) {
+                        db.collection("users").document(uid)
+                                .get()
+                                .addOnSuccessListener(userDoc -> {
+
+                                    Boolean enabled = userDoc.getBoolean("notificationsEnabled");
+                                    if (enabled == null) enabled = true; // default opt-in
+
+                                    if (!enabled) return; // skip
+
+                                    // Send the notification
+                                    DocumentReference notifRef = db.collection("users")
+                                            .document(uid)
+                                            .collection("notifications")
+                                            .document();
+
+                                    Map<String, Object> notif = new HashMap<>();
+                                    notif.put("type", "bulk_message");
+                                    notif.put("eventId", eventId);
+                                    notif.put("title", title);
+                                    notif.put("message", message);
+                                    notif.put("createdAt", FieldValue.serverTimestamp());
+                                    notif.put("read", false);
+
+                                    notifRef.set(notif);
+
+                                });
+                    }
+
+                    Toast.makeText(getContext(),
+                            "Notification sent to all opted-in entrants.",
+                            Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void generateAndShowQR(String content) {
