@@ -194,20 +194,30 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         }
 
                         for (com.google.firebase.firestore.DocumentChange change : snap.getDocumentChanges()) {
-                            String status = change.getDocument().getString("status");
 
-                            // invites that become "declined"
-                            boolean isDeclined = "declined".equals(status);
-                            boolean isNewOrUpdated =
-                                    change.getType() == com.google.firebase.firestore.DocumentChange.Type.ADDED
-                                            || change.getType() == com.google.firebase.firestore.DocumentChange.Type.MODIFIED;
+                            // We don't actually care if it's ADDED or MODIFIED,
+                            // we only care about the current state of the doc.
+                            DocumentSnapshot doc = change.getDocument();
+                            String status = doc.getString("status");
+                            Boolean replacementProcessed = doc.getBoolean("replacementProcessed");
 
-                            if (isDeclined && isNewOrUpdated) {
-                                Log.d(TAG, "Invite declined → running replacement lottery");
-                                // run replacement lottery
+                            boolean isDeclinedOrCancelled =
+                                    "declined".equals(status) || "cancelled".equals(status);
+                            boolean alreadyHandled = Boolean.TRUE.equals(replacementProcessed);
+
+                            if (isDeclinedOrCancelled && !alreadyHandled) {
+                                Log.d(TAG, "Invite declined/cancelled → running replacement lottery");
+
+                                // 1) run replacement lottery for exactly 1 entrant
                                 runLottery(eventId, eventName, 1);
 
-                                // create a notification for the organizer (no Toast)
+                                // 2) mark this invite as processed so it never triggers again
+                                doc.getReference()
+                                        .update("replacementProcessed", true)
+                                        .addOnFailureListener(err ->
+                                                Log.e(TAG, "Failed to mark replacementProcessed", err));
+
+                                // 3) optional: notify organizer
                                 if (organizerId != null && !organizerId.isEmpty()) {
                                     DocumentReference orgNotifRef = db.collection("users")
                                             .document(organizerId)
@@ -228,10 +238,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                                     Log.e(TAG, "Failed to write organizer replacement notification", err));
                                 }
                             }
-
                         }
                     });
         }
+
 
 
 
