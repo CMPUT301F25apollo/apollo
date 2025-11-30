@@ -58,17 +58,46 @@
         android:label="@string/title_notifications"
         tools:layout="@layout/fragment_notifications" />
 
-    <!-- 👤 Profile -->
+    <!-- Upcoming -->
+    <fragment
+        android:id="@+id/upcomingEventsFragment"
+        android:name="com.example.apollo.ui.entrant.profile.UpcomingEventsFragment"
+        android:label="Upcoming Events"/>
+
+    <!-- Waitlisted -->
+    <fragment
+        android:id="@+id/waitlistedEventsFragment"
+        android:name="com.example.apollo.ui.entrant.profile.WaitlistedEventsFragment"
+        android:label="Waitlisted Events"/>
+
+    <!-- History -->
+    <fragment
+        android:id="@+id/historyEventsFragment"
+        android:name="com.example.apollo.ui.entrant.profile.HistoryEventsFragment"
+        android:label="Event History"/>
+
+    <!-- Profile -->
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.apollo.ui.entrant.profile.ProfileFragment"
         android:label="@string/title_profile"
         tools:layout="@layout/fragment_profile">
 
-        <!-- ✅ Profile → Settings -->
         <action
             android:id="@+id/action_navigation_profile_to_navigation_settings"
             app:destination="@id/navigation_settings" />
+
+        <action
+            android:id="@+id/action_navigation_profile_to_upcomingEventsFragment"
+            app:destination="@id/upcomingEventsFragment" />
+
+        <action
+            android:id="@+id/action_navigation_profile_to_waitlistedEventsFragment"
+            app:destination="@id/waitlistedEventsFragment" />
+
+        <action
+            android:id="@+id/action_navigation_profile_to_historyEventsFragment"
+            app:destination="@id/historyEventsFragment" />
     </fragment>
 
     <!-- ⚙️ Settings -->
