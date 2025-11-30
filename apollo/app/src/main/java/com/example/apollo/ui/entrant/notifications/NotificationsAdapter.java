@@ -103,9 +103,17 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         h.title.setTypeface(null, n.read ? Typeface.NORMAL : Typeface.BOLD);
 
         // Disable click functionality for now
-        h.itemView.setOnClickListener(null);
-        h.itemView.setClickable(false);
-        h.itemView.setFocusable(false);
+//        h.itemView.setOnClickListener(null);
+//        h.itemView.setClickable(false);
+//        h.itemView.setFocusable(false);
+
+
+        //making it clickable
+        h.itemView.setOnClickListener(v -> {
+            if (onClick != null) {
+                onClick.onClick(n, pos);
+            }
+        });
     }
 
     /**
