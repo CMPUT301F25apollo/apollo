@@ -26,6 +26,7 @@ public class NotificationsViewModel {
     public String eventId;
     public boolean read;
     public Timestamp createdAt;
+    public String status; // "accepted", "declined", or null
 
     /**
      * Converts a Firestore document into a NotificationsViewModel object.
@@ -40,6 +41,7 @@ public class NotificationsViewModel {
         n.title    = d.getString("title");
         n.message  = d.getString("message");
         n.eventId  = d.getString("eventId");
+        n.status = d.getString("status");
 
         Boolean r  = d.getBoolean("read");
         n.read     = (r != null && r);
