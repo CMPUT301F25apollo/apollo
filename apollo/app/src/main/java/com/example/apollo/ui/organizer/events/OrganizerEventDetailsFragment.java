@@ -143,7 +143,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
         });
 
 
-
+        Button notifyWaitlistBtn = view.findViewById(R.id.notifyWaitlistBtn);
         Button buttonNotifySelected = view.findViewById(R.id.buttonNotifySelected);
         Button buttonNotifyCancelled = view.findViewById(R.id.buttonNotifyCancelled);
 
@@ -157,6 +157,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
             sendBulkNotification(eventId, "cancelled",
                     "Update about your registration",
                     "Your registration for " + eventName + " was marked as cancelled.");
+        });
+
+        notifyWaitlistBtn.setOnClickListener(v -> {
+            sendNotificationToWaitlist(eventId);
         });
 
         buttonEditEvent.setOnClickListener(v -> {
@@ -682,6 +686,91 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
+    }
+
+    private void sendNotificationToWaitlist(String eventId) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .whereEqualTo("state", "waiting")   // <— capital W
+                .get()
+                .addOnSuccessListener(query -> {
+                    if (query.isEmpty()) {
+                        Toast.makeText(getContext(), "No waitlisted entrants found.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    for (DocumentSnapshot doc : query) {
+                        String uid = doc.getId(); // entrantId = doc id
+                        sendNotificationToUser(uid, eventId);
+                    }
+
+                    Toast.makeText(getContext(), "Notifications sent to waitlisted entrants!", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Failed to send notifications to waitlist.", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * Sends a simple notification to a single user.
+     * Mirrors the existing notification structure used elsewhere in the app.
+     */
+    private void sendNotificationToUser(String uid, String eventId) {
+
+        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
+
+        // 1) Load user + check opt-in setting
+        fdb.collection("users").document(uid)
+                .get()
+                .addOnSuccessListener(userDoc -> {
+
+                    Boolean enabled = userDoc.getBoolean("notificationsEnabled");
+                    if (enabled == null) enabled = true;  // default: opt-in
+
+                    if (!enabled) {
+                        Log.d("NOTIF", "User " + uid + " opted out. Skipping.");
+                        return;
+                    }
+
+                    // 2) Create user-facing notification
+                    DocumentReference notifRef = fdb.collection("users")
+                            .document(uid)
+                            .collection("notifications")
+                            .document();
+
+                    Map<String, Object> notif = new HashMap<>();
+                    notif.put("type", "waitlist_message");
+                    notif.put("eventId", eventId);
+                    notif.put("title", "Update About Your Waitlist Status");
+                    notif.put("message", "You are currently on the waitlist for " + eventName);
+                    notif.put("createdAt", FieldValue.serverTimestamp());
+                    notif.put("read", false);
+
+                    notifRef.set(notif)
+                            .addOnSuccessListener(a -> {
+                                // 3) Log it globally
+                                DocumentReference logRef =
+                                        fdb.collection("notification_logs").document();
+
+                                Map<String, Object> log = new HashMap<>();
+                                log.put("eventId", eventId);
+                                log.put("timestamp", FieldValue.serverTimestamp());
+                                log.put("organizerId", organizerId);
+                                log.put("recipientId", uid);
+                                log.put("notificationType", "waitlist_message");
+                                log.put("notificationTitle", "Update About Your Waitlist Status");
+                                log.put("notificationMessage", "There is an update regarding the waitlist for this event.");
+
+                                logRef.set(log);
+                            })
+                            .addOnFailureListener(e ->
+                                    Log.e("NOTIF", "Failed to write notification for " + uid, e)
+                            );
+                })
+                .addOnFailureListener(e -> Log.e("NOTIF", "Failed to check opt-in for " + uid, e));
     }
 
 

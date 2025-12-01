@@ -69,15 +69,6 @@
                 android:textColor="#444444"
                 android:textSize="14sp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
-                android:text="@string/sign_up_label"
-                android:textColor="@color/black"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
             <!-- Event summary details -->
             <TextView
                 android:id="@+id/textEventSummary"
@@ -135,6 +126,15 @@
                 android:textStyle="bold"
                 android:textSize="12sp" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/notifyWaitlistBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Notify Waitlisted Entrants"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/teal_700"
+            android:textColor="@android:color/white" />
 
         <Button
             android:id="@+id/buttonNotifySelected"
