@@ -26,6 +26,18 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * NotificationsFragment.java
+ *
+ * Entrant-facing notifications screen. Displays a list of notifications
+ * (e.g., lottery win invites) for the current user, and lets them accept
+ * or decline directly from the list.
+ *
+ * Responsibilities:
+ * - Subscribe to Firestore user notifications collection
+ * - Feed updates into {@link NotificationsAdapter}
+ * - Handle accept/decline actions and update Firestore state
+ */
 public class NotificationsFragment extends Fragment {
 
     private FragmentNotificationsBinding binding;
@@ -34,6 +46,16 @@ public class NotificationsFragment extends Fragment {
     private ListenerRegistration reg;
     private NotificationsAdapter adapter;
 
+    /**
+     * Inflates the notifications layout, initializes Firestore/auth,
+     * sets up the RecyclerView + adapter, and wires the action callbacks
+     * for Accept / Decline on each notification.
+     *
+     * @param inflater  LayoutInflater used to inflate the UI.
+     * @param container Parent container for the fragment (may be null).
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view bound via ViewBinding.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -46,7 +68,7 @@ public class NotificationsFragment extends Fragment {
 
         binding.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        // Correct listener hookup
+        // Listener hooks for Accept / Decline actions
         adapter = new NotificationsAdapter(new NotificationsAdapter.OnNotificationAction() {
 
             @Override
@@ -66,7 +88,14 @@ public class NotificationsFragment extends Fragment {
         return binding.getRoot();
     }
 
-
+    /**
+     * Handles the "Accept" action for a notification. Marks the user
+     * as accepted/registered for the event and updates the notification
+     * document's status to "accepted".
+     *
+     * @param eventId        ID of the event related to the notification.
+     * @param notificationId ID of the notification document.
+     */
     private void acceptInvite(String eventId, String notificationId) {
         String uid = auth.getCurrentUser().getUid();
 
@@ -75,7 +104,6 @@ public class NotificationsFragment extends Fragment {
                 .collection("notifications")
                 .document(notificationId);
 
-        // add user to accepted_users
         DocumentReference acceptedRef = db.collection("events")
                 .document(eventId)
                 .collection("registration")
@@ -94,7 +122,13 @@ public class NotificationsFragment extends Fragment {
         });
     }
 
-
+    /**
+     * Handles the "Decline" action for a notification. Writes a declined
+     * entry under the event and updates the notification status to "declined".
+     *
+     * @param eventId        ID of the event related to the notification.
+     * @param notificationId ID of the notification document.
+     */
     private void declineInvite(String eventId, String notificationId) {
         String uid = auth.getCurrentUser().getUid();
 
@@ -120,6 +154,11 @@ public class NotificationsFragment extends Fragment {
         });
     }
 
+    /**
+     * Starts listening to the current user's notifications collection.
+     * Whenever the Firestore snapshot changes, it rebuilds the list of
+     * {@link NotificationsViewModel} and updates the adapter + empty state.
+     */
     @Override
     public void onStart() {
         super.onStart();
@@ -144,12 +183,19 @@ public class NotificationsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Removes the Firestore listener when the fragment is no longer visible
+     * to avoid leaking the snapshot subscription.
+     */
     @Override
     public void onStop() {
         if (reg != null) reg.remove();
         super.onStop();
     }
 
+    /**
+     * Clears the ViewBinding reference when the view is destroyed.
+     */
     @Override
     public void onDestroyView() {
         binding = null;

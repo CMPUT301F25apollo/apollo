@@ -37,11 +37,25 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import android.widget.Spinner;
 
+/**
+ * EventWaitlistFragment.java
+ *
+ * Organizer-facing fragment that displays everyone associated with a single event:
+ * - Entrants currently on the waitlist
+ * - Registered (accepted) entrants
+ * - Declined entrants
+ *
+ * Features:
+ * - Filters entrants by status using a Spinner (All / Accepted / Declined / Invited / Loser / Waiting)
+ * - Allows cancelling an invitation for "Invited" entrants
+ * - Exports the currently visible list as a CSV file for sharing
+ */
 public class EventWaitlistFragment extends Fragment {
 
-    // Simple data class to hold entrant details
+    /**
+     * Simple data model for displaying entrant details in the ListView.
+     */
     private static class Entrant {
         String id;
         String name;
@@ -60,7 +74,7 @@ public class EventWaitlistFragment extends Fragment {
         @NonNull
         @Override
         public String toString() {
-            // This is what will be displayed in the ListView
+            // Displayed in the ListView row
             return name + " – " + status;
         }
     }
@@ -75,6 +89,10 @@ public class EventWaitlistFragment extends Fragment {
     private String eventId;
     private Spinner filterSpinner;
 
+    /**
+     * Inflates the layout, sets up the ListView, filter Spinner, export button,
+     * and kicks off loading the waitlist for the provided eventId.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -91,32 +109,35 @@ public class EventWaitlistFragment extends Fragment {
         listView.setAdapter(adapter);
         listView.setEmptyView(emptyTextView);
 
-        // Setup for Spinner
+        // Setup filter options
         String[] filterOptions = {"All", "Accepted", "Declined", "invited", "Loser", "Waiting"};
-        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
+        ArrayAdapter<String> spinnerAdapter =
+                new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         filterSpinner.setAdapter(spinnerAdapter);
 
+        // Re-filter whenever selection changes
         filterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            public void onItemSelected(AdapterView<?> parent, View view1, int position, long id) {
                 applyFilter();
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // Do nothing
+
             }
         });
 
-        // Set click listener for cancellation
+        // Tap entrant to cancel "Invited" entries
         listView.setOnItemClickListener((parent, itemView, position, id) -> {
             Entrant selectedEntrant = entrantsList.get(position);
-            // We can only cancel invitations for people who have won but not yet responded
             if ("Invited".equalsIgnoreCase(selectedEntrant.getStatus())) {
                 showCancelInvitationDialog(selectedEntrant);
             } else {
-                Toast.makeText(getContext(), "Only invited entrants (status: Invited) can be cancelled.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(),
+                        "Only invited entrants (status: Invited) can be cancelled.",
+                        Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -133,6 +154,11 @@ public class EventWaitlistFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Shows a confirmation dialog before cancelling an invited entrant.
+     *
+     * @param entrant The entrant whose invitation may be cancelled.
+     */
     private void showCancelInvitationDialog(Entrant entrant) {
         new AlertDialog.Builder(getContext())
                 .setTitle("Cancel Invitation")
@@ -142,6 +168,12 @@ public class EventWaitlistFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Updates the entrant's waitlist state to "Cancelled" for this event.
+     * After success, the list is reloaded to reflect the new status.
+     *
+     * @param entrant Entrant whose invitation is being cancelled.
+     */
     private void cancelInvitation(Entrant entrant) {
         if (eventId == null || entrant == null || entrant.getId() == null) {
             Toast.makeText(getContext(), "Error: Cannot cancel invitation.", Toast.LENGTH_SHORT).show();
@@ -152,14 +184,25 @@ public class EventWaitlistFragment extends Fragment {
                 .collection("waitlist").document(entrant.getId())
                 .update("state", "Cancelled")
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), entrant.getName() + "'s invitation has been cancelled.", Toast.LENGTH_SHORT).show();
-                    loadWaitlistEntrants(); // Refresh the list to show the new status
+                    Toast.makeText(getContext(),
+                            entrant.getName() + "'s invitation has been cancelled.",
+                            Toast.LENGTH_SHORT).show();
+                    loadWaitlistEntrants(); // Refresh list
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to cancel invitation. Please try again.", Toast.LENGTH_SHORT).show();
-                });
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(),
+                                "Failed to cancel invitation. Please try again.",
+                                Toast.LENGTH_SHORT).show());
     }
 
+    /**
+     * Loads all entrants associated with this event from:
+     * - waitlist
+     * - registrations
+     * - declined
+     *
+     * Then joins them with user details from "users" and builds the in-memory list used by the UI.
+     */
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
@@ -167,81 +210,98 @@ public class EventWaitlistFragment extends Fragment {
         allEntrants.clear();
         applyFilter();
 
-        Task<QuerySnapshot> waitlistTask = db.collection("events").document(eventId).collection("waitlist").get();
-        Task<QuerySnapshot> registrationsTask = db.collection("events").document(eventId).collection("registrations").get();
-        Task<QuerySnapshot> declinedTask = db.collection("events").document(eventId).collection("declined").get();
+        Task<QuerySnapshot> waitlistTask =
+                db.collection("events").document(eventId).collection("waitlist").get();
+        Task<QuerySnapshot> registrationsTask =
+                db.collection("events").document(eventId).collection("registrations").get();
+        Task<QuerySnapshot> declinedTask =
+                db.collection("events").document(eventId).collection("declined").get();
 
-        Tasks.whenAllSuccess(waitlistTask, registrationsTask, declinedTask).addOnSuccessListener(snapshots -> {
-            Map<String, String> entrantStates = new HashMap<>();
+        Tasks.whenAllSuccess(waitlistTask, registrationsTask, declinedTask)
+                .addOnSuccessListener(snapshots -> {
+                    Map<String, String> entrantStates = new HashMap<>();
 
-            QuerySnapshot declinedSnapshot = (QuerySnapshot) snapshots.get(2);
-            for (QueryDocumentSnapshot doc : declinedSnapshot) {
-                entrantStates.put(doc.getId(), "Declined");
-            }
-
-            QuerySnapshot registrationsSnapshot = (QuerySnapshot) snapshots.get(1);
-            for (QueryDocumentSnapshot doc : registrationsSnapshot) {
-                entrantStates.put(doc.getId(), "Accepted");
-            }
-
-            QuerySnapshot waitlistSnapshot = (QuerySnapshot) snapshots.get(0);
-            for (QueryDocumentSnapshot doc : waitlistSnapshot) {
-                if (!entrantStates.containsKey(doc.getId())) {
-                    String state = doc.getString("state");
-                    entrantStates.put(doc.getId(), (state != null) ? state : "unknown");
-                }
-            }
-
-            if (entrantStates.isEmpty()) {
-                emptyTextView.setText("No one has joined the event");
-                allEntrants.clear();
-                applyFilter();
-                return;
-            }
-
-            List<Task<DocumentSnapshot>> userDetailTasks = new ArrayList<>();
-            for (String entrantId : entrantStates.keySet()) {
-                userDetailTasks.add(db.collection("users").document(entrantId).get());
-            }
-
-            Tasks.whenAllSuccess(userDetailTasks).addOnSuccessListener(userSnapshots -> {
-                List<Entrant> newEntrantsList = new ArrayList<>();
-                for (Object snapshot : userSnapshots) {
-                    DocumentSnapshot userDoc = (DocumentSnapshot) snapshot;
-                    if (!userDoc.exists()) continue;
-
-                    String entrantId = userDoc.getId();
-                    String name = userDoc.getString("name");
-                    String displayName = (name != null) ? name : entrantId;
-                    String status = entrantStates.get(entrantId);
-
-                    if (status != null) {
-                        String displayStatus = status.substring(0, 1).toUpperCase() + status.substring(1);
-                        newEntrantsList.add(new Entrant(entrantId, displayName, displayStatus));
+                    // Declined entrants
+                    QuerySnapshot declinedSnapshot = (QuerySnapshot) snapshots.get(2);
+                    for (QueryDocumentSnapshot doc : declinedSnapshot) {
+                        entrantStates.put(doc.getId(), "Declined");
                     }
-                }
 
-                Collections.sort(newEntrantsList, (e1, e2) -> e1.getName().compareToIgnoreCase(e2.getName()));
+                    // Accepted / registered entrants
+                    QuerySnapshot registrationsSnapshot = (QuerySnapshot) snapshots.get(1);
+                    for (QueryDocumentSnapshot doc : registrationsSnapshot) {
+                        entrantStates.put(doc.getId(), "Accepted");
+                    }
 
-                allEntrants.clear();
-                allEntrants.addAll(newEntrantsList);
-                applyFilter();
+                    // Waitlist entries (only if not already labeled above)
+                    QuerySnapshot waitlistSnapshot = (QuerySnapshot) snapshots.get(0);
+                    for (QueryDocumentSnapshot doc : waitlistSnapshot) {
+                        if (!entrantStates.containsKey(doc.getId())) {
+                            String state = doc.getString("state");
+                            entrantStates.put(doc.getId(), (state != null) ? state : "unknown");
+                        }
+                    }
 
-                if (allEntrants.isEmpty()) {
-                    emptyTextView.setText("No entrants found");
-                }
+                    if (entrantStates.isEmpty()) {
+                        emptyTextView.setText("No one has joined the event");
+                        allEntrants.clear();
+                        applyFilter();
+                        return;
+                    }
 
-            }).addOnFailureListener(e -> {
-                emptyTextView.setText("Failed to load entrant details");
-                Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
+                    // Now fetch user details for each entrant
+                    List<Task<DocumentSnapshot>> userDetailTasks = new ArrayList<>();
+                    for (String entrantId : entrantStates.keySet()) {
+                        userDetailTasks.add(
+                                db.collection("users").document(entrantId).get()
+                        );
+                    }
 
-        }).addOnFailureListener(e -> {
-            emptyTextView.setText("Failed to load event data");
-            Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        });
+                    Tasks.whenAllSuccess(userDetailTasks).addOnSuccessListener(userSnapshots -> {
+                        List<Entrant> newEntrantsList = new ArrayList<>();
+                        for (Object snapshot : userSnapshots) {
+                            DocumentSnapshot userDoc = (DocumentSnapshot) snapshot;
+                            if (!userDoc.exists()) continue;
+
+                            String entrantId = userDoc.getId();
+                            String name = userDoc.getString("name");
+                            String displayName = (name != null) ? name : entrantId;
+                            String status = entrantStates.get(entrantId);
+
+                            if (status != null) {
+                                String displayStatus =
+                                        status.substring(0, 1).toUpperCase() + status.substring(1);
+                                newEntrantsList.add(new Entrant(entrantId, displayName, displayStatus));
+                            }
+                        }
+
+                        // Sort entrants alphabetically by name
+                        Collections.sort(newEntrantsList,
+                                (e1, e2) -> e1.getName().compareToIgnoreCase(e2.getName()));
+
+                        allEntrants.clear();
+                        allEntrants.addAll(newEntrantsList);
+                        applyFilter();
+
+                        if (allEntrants.isEmpty()) {
+                            emptyTextView.setText("No entrants found");
+                        }
+
+                    }).addOnFailureListener(e -> {
+                        emptyTextView.setText("Failed to load entrant details");
+                        Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+
+                }).addOnFailureListener(e -> {
+                    emptyTextView.setText("Failed to load event data");
+                    Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
+    /**
+     * Applies the current filter selection from the Spinner to the full list
+     * and updates the visible ListView entries.
+     */
     private void applyFilter() {
         if (filterSpinner == null || allEntrants == null) {
             return;
@@ -274,6 +334,11 @@ public class EventWaitlistFragment extends Fragment {
             emptyTextView.setVisibility(View.GONE);
         }
     }
+
+    /**
+     * Exports the currently visible entrants (after filtering) to a CSV file
+     * and then calls {@link #shareCsv(File)} to share it via an external app.
+     */
     private void exportWaitlistToCsv() {
         if (entrantsList.isEmpty()) {
             Toast.makeText(getContext(), "No data to export", Toast.LENGTH_SHORT).show();
@@ -303,6 +368,11 @@ public class EventWaitlistFragment extends Fragment {
         }
     }
 
+    /**
+     * Shares the generated CSV file using an ACTION_SEND intent and FileProvider.
+     *
+     * @param file CSV file to be shared.
+     */
     private void shareCsv(File file) {
         Uri uri = FileProvider.getUriForFile(
                 requireContext(),
@@ -318,12 +388,18 @@ public class EventWaitlistFragment extends Fragment {
         startActivity(Intent.createChooser(intent, "Share CSV File"));
     }
 
+    /**
+     * Enables handling of the ActionBar back/home button to pop this fragment.
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
     }
 
+    /**
+     * Handles toolbar home (up) presses to navigate back in the stack.
+     */
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
@@ -333,6 +409,10 @@ public class EventWaitlistFragment extends Fragment {
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Refreshes the entrants list whenever the fragment is resumed,
+     * ensuring the UI reflects latest states (accepted/declined/etc.).
+     */
     @Override
     public void onResume() {
         super.onResume();

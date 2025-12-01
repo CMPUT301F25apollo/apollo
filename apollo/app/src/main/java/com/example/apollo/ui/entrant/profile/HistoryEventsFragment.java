@@ -24,6 +24,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * HistoryEventsFragment.java
+ *
+ * Displays a list of *past* events that the user interacted with — including
+ * events they registered for, were invited to, or joined the waitlist for.
+ *
+ * Flow:
+ * - Collect all event IDs linked to the user (registrations, invites, waitlist)
+ * - Fetch the full event documents from Firestore
+ * - Show only events whose date has already passed
+ */
 public class HistoryEventsFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -46,6 +57,7 @@ public class HistoryEventsFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.recyclerEvents);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+
         adapter = new EventsAdapter(events);
         recyclerView.setAdapter(adapter);
 
@@ -55,48 +67,48 @@ public class HistoryEventsFragment extends Fragment {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", event.getId());
 
-            NavHostFragment.findNavController(HistoryEventsFragment.this)
+            NavHostFragment.findNavController(this)
                     .navigate(R.id.navigation_event_details, bundle);
         });
-
 
         loadHistoryEvents();
     }
 
+    /**
+     * Collects every event the user interacted with:
+     * - registrations/
+     * - invites/
+     * - waitlist/
+     * Then deduplicates the IDs and loads those events.
+     */
     private void loadHistoryEvents() {
         String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-
-        // Step 1: collect all event IDs where user interacted
         List<String> interactedEventIds = new ArrayList<>();
 
-        // Load registrations
+        // Registrations
         db.collection("registrations").document(uid).get()
                 .addOnSuccessListener(regSnap -> {
 
-                    if (regSnap.exists()) {
+                    if (regSnap.exists())
                         interactedEventIds.addAll(regSnap.getData().keySet());
-                    }
 
-                    // Load invites next
+                    // Invites
                     db.collection("invites").document(uid).get()
                             .addOnSuccessListener(invSnap -> {
 
-                                if (invSnap.exists()) {
+                                if (invSnap.exists())
                                     interactedEventIds.addAll(invSnap.getData().keySet());
-                                }
 
-                                // Load waitlist next
+                                // Waitlist
                                 db.collection("waitlist").document(uid).get()
                                         .addOnSuccessListener(waitSnap -> {
 
-                                            if (waitSnap.exists()) {
+                                            if (waitSnap.exists())
                                                 interactedEventIds.addAll(waitSnap.getData().keySet());
-                                            }
 
                                             // Remove duplicates
-                                            List<String> uniqueIds = new ArrayList<>(
-                                                    new java.util.HashSet<>(interactedEventIds)
-                                            );
+                                            List<String> uniqueIds =
+                                                    new ArrayList<>(new java.util.HashSet<>(interactedEventIds));
 
                                             if (uniqueIds.isEmpty()) {
                                                 events.clear();
@@ -104,13 +116,16 @@ public class HistoryEventsFragment extends Fragment {
                                                 return;
                                             }
 
-                                            // Now fetch all events and filter by past
                                             fetchPastInteractedEvents(uniqueIds);
                                         });
                             });
                 });
     }
 
+    /**
+     * Fetches event documents for the given IDs,
+     * keeps only those whose date has already passed.
+     */
     private void fetchPastInteractedEvents(List<String> eventIds) {
         events.clear();
 
@@ -132,6 +147,12 @@ public class HistoryEventsFragment extends Fragment {
         }
     }
 
+    /**
+     * Checks whether the given event date is before today's date.
+     *
+     * @param dateStr Date in MM/dd/yyyy format.
+     * @return true if the event happened in the past.
+     */
     private boolean isPast(String dateStr) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.US);

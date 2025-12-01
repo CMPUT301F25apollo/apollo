@@ -29,70 +29,73 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
 import android.text.TextUtils;
+
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
 import androidx.preference.PreferenceManager;
-import org.osmdroid.util.BoundingBox;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
-
-
-
+import java.util.Map;
+import java.util.Random;
 
 /**
  * OrganizerEventDetailsFragment.java
  *
  * Purpose:
- * Displays detailed information about a specific event created by an organizer.
- * Allows the organizer to edit event details, run a lottery for entrants, and view the waitlist.
- * Also generates a QR code for event identification.
+ * - Displays full details about a specific event created by an organizer.
+ * - Allows organizers to:
+ *   • Edit the event
+ *   • Run the main lottery for entrants
+ *   • Automatically run replacement lotteries when invites are declined/cancelled
+ *   • View and export the waitlist
+ *   • Send targeted notifications to invitees and waitlisted users
+ *   • View a map of entrant geolocations (when enabled)
+ *   • Generate and view a QR code for the event
  *
- * Design Pattern:
- * - Acts as the Controller in the MVC pattern.
- * - Connects Firestore (Model) with the layout views (View).
- * - Uses Android Navigation for transitions between screens.
+ * Design pattern:
+ * - Acts as the Controller in an MVC-style design:
+ *   • Firestore is the data/model layer
+ *   • The XML layout is the view
+ *   • This fragment coordinates user actions and data updates
  *
  * Notes:
- * - Lottery selection randomly picks entrants from the waitlist and sends notifications.
- * - Supports QR code generation for event access.
+ * - Enforces that the main lottery can only be run after registration is closed.
+ * - Uses Firestore batch writes for consistent lottery + notification updates.
+ * - Logs user-facing notifications into a global "notification_logs" collection.
  */
 public class OrganizerEventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private TextView textEventTitle, textEventDescription, textEventSummary;
     private Button buttonEditEvent, buttonSendLottery, buttonViewParticipants;
-
     private ImageView eventPosterImage;
-    private String eventId;
     private MapView mapView;
+
+    private String eventId;
     private String eventName = "Event";
     private static final String TAG = "LotteryFix";
-    private boolean showMap = false;
     private String organizerId;
     private Boolean lotteryDone = false;
     private boolean registrationClosed = false;
 
     /**
      * Called when the fragment’s view is created.
-     * Initializes Firestore and UI components, loads event details,
-     * and sets up button click actions.
+     * Initializes Firestore, UI components, event listeners, and loads the event details.
      *
-     * @param inflater           Used to inflate the layout.
-     * @param container          The parent view group.
-     * @param savedInstanceState Bundle with saved state, if any.
-     * @return The root view for this fragment.
+     * @param inflater           Layout inflater.
+     * @param container          Parent container.
+     * @param savedInstanceState Previously saved state, or null.
+     * @return The inflated view hierarchy for this fragment.
      */
     @Nullable
     @Override
@@ -111,10 +114,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
         buttonSendLottery = view.findViewById(R.id.buttonSendLottery);
         buttonViewParticipants = view.findViewById(R.id.buttonViewParticipants);
         eventPosterImage = view.findViewById(R.id.eventPosterImage);
-
-
         mapView = view.findViewById(R.id.map);
 
+        // MAIN LOTTERY BUTTON
         buttonSendLottery.setOnClickListener(v -> {
 
             if (eventId == null || eventId.isEmpty()) {
@@ -122,7 +124,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 return;
             }
 
-            // Registration still open → allow click but show toast
+            // Registration still open mean don't allow running lottery yet
             if (!registrationClosed) {
                 Toast.makeText(
                         getContext(),
@@ -138,31 +140,38 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 return;
             }
 
-            // Run dialog to choose winners
+            // Ask for how many winners to select
             askForWinnerCountAndRunLottery(eventId, eventName);
         });
-
 
         Button notifyWaitlistBtn = view.findViewById(R.id.notifyWaitlistBtn);
         Button buttonNotifySelected = view.findViewById(R.id.buttonNotifySelected);
         Button buttonNotifyCancelled = view.findViewById(R.id.buttonNotifyCancelled);
 
-        buttonNotifySelected.setOnClickListener(v -> {
-            sendBulkNotification(eventId, "invited",
-                    "You’re still invited!",
-                    "Just a reminder that you were selected for " + eventName + ".");
-        });
+        // Reminder for invited users
+        buttonNotifySelected.setOnClickListener(v ->
+                sendBulkNotification(
+                        eventId,
+                        "invited",
+                        "You’re still invited!",
+                        "Just a reminder that you were selected for " + eventName + "."
+                )
+        );
 
-        buttonNotifyCancelled.setOnClickListener(v -> {
-            sendBulkNotification(eventId, "cancelled",
-                    "Update about your registration",
-                    "Your registration for " + eventName + " was marked as cancelled.");
-        });
+        // Status update for cancelled registrations
+        buttonNotifyCancelled.setOnClickListener(v ->
+                sendBulkNotification(
+                        eventId,
+                        "cancelled",
+                        "Update about your registration",
+                        "Your registration for " + eventName + " was marked as cancelled."
+                )
+        );
 
-        notifyWaitlistBtn.setOnClickListener(v -> {
-            sendNotificationToWaitlist(eventId);
-        });
+        // Notify all waitlisted entrants
+        notifyWaitlistBtn.setOnClickListener(v -> sendNotificationToWaitlist(eventId));
 
+        // Edit event
         buttonEditEvent.setOnClickListener(v -> {
             if (eventId == null || eventId.isEmpty()) {
                 Toast.makeText(getContext(), "Invalid event.", Toast.LENGTH_SHORT).show();
@@ -182,11 +191,13 @@ public class OrganizerEventDetailsFragment extends Fragment {
         );
         Configuration.getInstance().setUserAgentValue(requireContext().getPackageName());
 
+        // Load event details
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadEventDetails(eventId);
         }
 
+        // Listen for invites that get declined/cancelled auto draw a replacement
         if (eventId != null && !eventId.isEmpty()) {
             db.collection("events")
                     .document(eventId)
@@ -199,8 +210,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                         for (com.google.firebase.firestore.DocumentChange change : snap.getDocumentChanges()) {
 
-                            // We don't actually care if it's ADDED or MODIFIED,
-                            // we only care about the current state of the doc.
                             DocumentSnapshot doc = change.getDocument();
                             String status = doc.getString("status");
                             Boolean replacementProcessed = doc.getBoolean("replacementProcessed");
@@ -212,16 +221,16 @@ public class OrganizerEventDetailsFragment extends Fragment {
                             if (isDeclinedOrCancelled && !alreadyHandled) {
                                 Log.d(TAG, "Invite declined/cancelled → running replacement lottery");
 
-                                // 1) run replacement lottery for exactly 1 entrant
+                                //  Run replacement lottery for exactly 1 entrant
                                 runLottery(eventId, eventName, 1);
 
-                                // 2) mark this invite as processed so it never triggers again
+                                //  Mark this invite as processed so it never triggers again
                                 doc.getReference()
                                         .update("replacementProcessed", true)
                                         .addOnFailureListener(err ->
                                                 Log.e(TAG, "Failed to mark replacementProcessed", err));
 
-                                // 3) optional: notify organizer
+                                //  notify organizer about replacement draw
                                 if (organizerId != null && !organizerId.isEmpty()) {
                                     DocumentReference orgNotifRef = db.collection("users")
                                             .document(organizerId)
@@ -246,10 +255,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     });
         }
 
-
-
-
-        // Navigate to waitlist participant screen
+        // Navigate to waitlist / participant management screen
         buttonViewParticipants.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", eventId);
@@ -257,37 +263,36 @@ public class OrganizerEventDetailsFragment extends Fragment {
             navController.navigate(R.id.navigation_event_waitlist, bundle);
         });
 
-        // QR button opens a modal with generated QR code
+        // QR code button open dialog with QR
         ImageView qrButton = view.findViewById(R.id.qrButton);
-        qrButton.setOnClickListener(v -> {
-            db.collection("events").document(eventId)
-                    .get()
-                    .addOnSuccessListener(doc -> {
-                        if (!doc.exists()) return;
+        qrButton.setOnClickListener(v -> db.collection("events").document(eventId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) return;
 
-                        String qrValue = doc.getString("eventQR");
-                        if (qrValue == null) {
-                            Toast.makeText(getContext(), "No QR saved for this event.", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                    String qrValue = doc.getString("eventQR");
+                    if (qrValue == null) {
+                        Toast.makeText(getContext(), "No QR saved for this event.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-                        generateAndShowQR(qrValue); // function below
-                    })
-                    .addOnFailureListener(e -> Toast.makeText(getContext(), "QR load failed", Toast.LENGTH_SHORT).show());
-        });
-
+                    generateAndShowQR(qrValue);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "QR load failed", Toast.LENGTH_SHORT).show()
+                ));
 
         return view;
     }
 
     /**
-     * Loads event details from Firestore and displays them in the UI.
+     * Loads event details from Firestore, derives some state (registrationClosed, lotteryDone),
+     * configures the lottery button, shows the event poster, and (if enabled) shows a map of
+     * entrant locations.
      *
-     * @param eventId The ID of the event to load.
+     * @param eventId ID of the event document to load.
      */
     private void loadEventDetails(String eventId) {
-//        mapView = requireView().findViewById(R.id.map);
-
 
         DocumentReference eventRef = db.collection("events").document(eventId);
 
@@ -309,16 +314,12 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                         organizerId = document.getString("creatorId");
 
-
+                        // Lottery state
                         lotteryDone = document.getBoolean("lotteryDone");
                         if (lotteryDone == null) lotteryDone = false;
                         updateLotteryButtonUi();
 
-
-                        lotteryDone = document.getBoolean("lotteryDone");
-                        if (lotteryDone == null) lotteryDone = false;
-
-// figure out if registration has closed yet
+                        // Determine if registration is closed yet (date + time)
                         registrationClosed = false;
                         if (registrationClose != null && time != null) {
                             try {
@@ -328,7 +329,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                                 long closeMillis = fmt.parse(registrationCloseDateTime).getTime();
                                 long now = System.currentTimeMillis();
-                                registrationClosed = now >= closeMillis;   // 👈 true only AFTER close time
+                                registrationClosed = now >= closeMillis;
 
                             } catch (ParseException e) {
                                 Log.e(TAG, "Failed to parse registrationClose/time for registrationClosed", e);
@@ -336,7 +337,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                             }
                         }
 
-// now update the button based on lotteryDone + registrationClosed
+                        // Update lottery button again with final flags
                         updateLotteryButtonUi();
 
                         if (posterUrl != null && !posterUrl.isEmpty()) {
@@ -361,7 +362,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         eventName = (title != null && !title.isEmpty()) ? title : "Event";
 
                         textEventTitle.setText(title != null ? title : "Untitled Event");
-                        textEventDescription.setText(description != null ? description : "No description available");
+                        textEventDescription.setText(
+                                description != null ? description : "No description available"
+                        );
                         textEventSummary.setText(
                                 "Location: " + locationText + "\n" +
                                         "Date: " + date + "\n" +
@@ -373,13 +376,12 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                         "\n\nLottery can be run after registration closes."
                         );
 
+                        // Map showing entrant coordinates
                         if (showMap) {
                             mapView.setVisibility(View.VISIBLE);
                             mapView.setTileSource(TileSourceFactory.MAPNIK);
                             mapView.setMultiTouchControls(true);
 
-
-                            // ----- Load coordinates array from Firestore -----
                             List<Map<String, Object>> coords =
                                     (List<Map<String, Object>>) document.get("coordinate");
 
@@ -393,7 +395,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 mapView.getController().setZoom(13.0);
                                 mapView.getController().setCenter(new GeoPoint(lat, lon));
 
-                                // Add markers for every coordinate point
+                                // Add markers for all recorded entrant locations
                                 for (Map<String, Object> point : coords) {
                                     double pLat = (double) point.get("lat");
                                     double pLon = (double) point.get("lon");
@@ -406,25 +408,27 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                     mapView.getOverlays().add(marker);
                                 }
 
-                                mapView.invalidate(); // refresh map
+                                mapView.invalidate();
                             } else {
                                 Log.d("MAP", "No coordinates stored in Firestore.");
                             }
                         }
 
-
                     } else {
                         Log.w("Firestore", "No such event found with ID: " + eventId);
                     }
                 })
-                .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
+                .addOnFailureListener(e ->
+                        Log.e("Firestore", "Error loading event details", e)
+                );
     }
 
     /**
-     * Prompts the organizer to enter how many winners should be selected for the lottery.
+     * Shows a dialog asking the organizer how many winners should be selected,
+     * then calls {@link #runLottery(String, String, int)} with that number.
      *
-     * @param eventId   The ID of the event.
-     * @param eventName The name of the event for notification messages.
+     * @param eventId   Event ID.
+     * @param eventName Event name for notification text.
      */
     private void askForWinnerCountAndRunLottery(@NonNull String eventId, @NonNull String eventName) {
         if (getContext() == null) return;
@@ -442,8 +446,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     int k = 0;
                     try {
                         k = Integer.parseInt(s);
-                    } catch (Exception ignore) {
-                    }
+                    } catch (Exception ignore) { }
                     if (k <= 0) {
                         Toast.makeText(getContext(), "Must be > 0", Toast.LENGTH_SHORT).show();
                         return;
@@ -454,30 +457,25 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .show();
     }
 
-
-
-
     /**
-     * Prompts the organizer to enter how many replacement winners to select.
-     * Reuses the same lottery logic, but is conceptually for filling spots
-     * when invited users decline or cancel.
-     */
-
-
-
-    /**
-     * Selects a random number of winners from the event’s waitlist and sends them notifications.
+     * Runs the lottery for the given event:
+     * - Loads all waitlist entrants with state "waiting"
+     * - Randomly selects up to {@code winnersToPick} winners
+     * - Marks winners as "invited" and losers as "loser"
+     * - Creates per-user notifications
+     * - Logs all notifications to "notification_logs"
+     * - Sets event.lotteryDone = true on success and updates the lottery button UI
      *
-     * @param eventId       The ID of the event.
-     * @param eventName     The name of the event.
-     * @param winnersToPick The number of winners to select.
+     * @param eventId       Event ID.
+     * @param eventName     Event name for message text.
+     * @param winnersToPick Number of winners to select.
      */
     public void runLottery(@NonNull String eventId, @NonNull String eventName, int winnersToPick) {
         if (getContext() == null) return;
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
-        // Organizer ID for logging
+        // Organizer ID used for logging in notification_logs
         String organizerId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : "unknown";
@@ -495,7 +493,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                     List<String> candidates = new ArrayList<>();
 
-                    // Gather candidates
+                    // Gather candidate UIDs
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String uid = d.getId();
                         if (TextUtils.isEmpty(uid)) {
@@ -513,23 +511,20 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         return;
                     }
 
-                    // Pick winners
+                    // Randomize and pick winners
                     Collections.shuffle(candidates, new Random());
                     int numberOfWinner = Math.min(winnersToPick, candidates.size());
                     List<String> winners = candidates.subList(0, numberOfWinner);
 
-                    // Losers = everyone else
+                    // Everyone else is a loser
                     List<String> losers = new ArrayList<>(candidates);
                     losers.removeAll(winners);
 
                     WriteBatch batch = fdb.batch();
 
-                    // ------------------------------------------------------------
-                    // WINNERS
-                    // ------------------------------------------------------------
                     for (String uid : winners) {
 
-                        // ⬅️ Win log in event.lotteryResults
+                        // Lottery result log (winners)
                         DocumentReference lotteryWinnerRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -543,7 +538,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         winnerLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryWinnerRef, winnerLog);
 
-                        // ⬅️ Create invite
+                        // Invite entry
                         DocumentReference inviteRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("invites")
@@ -554,7 +549,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         invite.put("invitedAt", FieldValue.serverTimestamp());
                         batch.set(inviteRef, invite, SetOptions.merge());
 
-                        // ⬅️ User notification
+                        // User notification
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -569,7 +564,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // ⬅️ waitlist update
+                        // Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -580,9 +575,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("updatedAt", FieldValue.serverTimestamp());
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
 
-                        // --------------------------------------------------------
-                        // NEW: GLOBAL notification_logs entry
-                        // --------------------------------------------------------
+                        // winner
                         DocumentReference logRef = fdb.collection("notification_logs").document();
 
                         Map<String, Object> logData = new HashMap<>();
@@ -597,12 +590,10 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         batch.set(logRef, logData);
                     }
 
-                    // ------------------------------------------------------------
-                    // LOSERS
-                    // ------------------------------------------------------------
+                   //loser stuff
                     for (String uid : losers) {
 
-                        // ⬅️ Loser log in event.lotteryResults
+                        // losers
                         DocumentReference lotteryLoserRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("lotteryResults")
@@ -616,7 +607,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         loserLog.put("timestamp", FieldValue.serverTimestamp());
                         batch.set(lotteryLoserRef, loserLog);
 
-                        // ⬅️ Notification to loser
+                        // Notification to losers
                         DocumentReference notifRef = fdb.collection("users")
                                 .document(uid)
                                 .collection("notifications")
@@ -631,7 +622,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         notif.put("read", false);
                         batch.set(notifRef, notif);
 
-                        // ⬅️ Update waitlist entry
+                        // Update waitlist entry
                         DocumentReference wlRef = fdb.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
@@ -643,9 +634,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         wlUpdate.put("lastResult", "not_selected");
                         batch.set(wlRef, wlUpdate, SetOptions.merge());
 
-                        // --------------------------------------------------------
-                        // NEW: GLOBAL notification_logs entry
-                        // --------------------------------------------------------
+                        // loser
                         DocumentReference logRef = fdb.collection("notification_logs").document();
 
                         Map<String, Object> logData = new HashMap<>();
@@ -660,9 +649,6 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         batch.set(logRef, logData);
                     }
 
-                    // ------------------------------------------------------------
-                    // COMMIT BATCH
-                    // ------------------------------------------------------------
                     batch.commit()
                             .addOnSuccessListener(u -> {
                                 Toast.makeText(getContext(),
@@ -683,18 +669,26 @@ public class OrganizerEventDetailsFragment extends Fragment {
                             });
 
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Waitlist load failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(),
+                                "Waitlist load failed: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show()
+                );
     }
 
+    /**
+     * Sends a "waitlist_message" notification to everyone on the waitlist
+     * with state "waiting" for this event, respecting user opt-out settings.
+     *
+     * @param eventId Event ID.
+     */
     private void sendNotificationToWaitlist(String eventId) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         db.collection("events")
                 .document(eventId)
                 .collection("waitlist")
-                .whereEqualTo("state", "waiting")   // <— capital W
+                .whereEqualTo("state", "waiting")
                 .get()
                 .addOnSuccessListener(query -> {
                     if (query.isEmpty()) {
@@ -703,39 +697,45 @@ public class OrganizerEventDetailsFragment extends Fragment {
                     }
 
                     for (DocumentSnapshot doc : query) {
-                        String uid = doc.getId(); // entrantId = doc id
+                        String uid = doc.getId();
                         sendNotificationToUser(uid, eventId);
                     }
 
-                    Toast.makeText(getContext(), "Notifications sent to waitlisted entrants!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(),
+                            "Notifications sent to waitlisted entrants!",
+                            Toast.LENGTH_SHORT).show();
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to send notifications to waitlist.", Toast.LENGTH_SHORT).show();
-                });
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(),
+                                "Failed to send notifications to waitlist.",
+                                Toast.LENGTH_SHORT).show()
+                );
     }
 
     /**
-     * Sends a simple notification to a single user.
-     * Mirrors the existing notification structure used elsewhere in the app.
+     * Sends a single "waitlist_message" notification to a user, only if they are opted in.
+     *
+     * @param uid     User ID.
+     * @param eventId Event ID.
      */
     private void sendNotificationToUser(String uid, String eventId) {
 
         FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
-        // 1) Load user + check opt-in setting
+        // Load user + check opt-in setting
         fdb.collection("users").document(uid)
                 .get()
                 .addOnSuccessListener(userDoc -> {
 
                     Boolean enabled = userDoc.getBoolean("notificationsEnabled");
-                    if (enabled == null) enabled = true;  // default: opt-in
+                    if (enabled == null) enabled = true;
 
                     if (!enabled) {
                         Log.d("NOTIF", "User " + uid + " opted out. Skipping.");
                         return;
                     }
 
-                    // 2) Create user-facing notification
+                    // Create user-facing notification
                     DocumentReference notifRef = fdb.collection("users")
                             .document(uid)
                             .collection("notifications")
@@ -751,7 +751,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
 
                     notifRef.set(notif)
                             .addOnSuccessListener(a -> {
-                                // 3) Log it globally
+                                // Log it globally
                                 DocumentReference logRef =
                                         fdb.collection("notification_logs").document();
 
@@ -762,7 +762,8 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                 log.put("recipientId", uid);
                                 log.put("notificationType", "waitlist_message");
                                 log.put("notificationTitle", "Update About Your Waitlist Status");
-                                log.put("notificationMessage", "There is an update regarding the waitlist for this event.");
+                                log.put("notificationMessage",
+                                        "There is an update regarding the waitlist for this event.");
 
                                 logRef.set(log);
                             })
@@ -770,13 +771,19 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                     Log.e("NOTIF", "Failed to write notification for " + uid, e)
                             );
                 })
-                .addOnFailureListener(e -> Log.e("NOTIF", "Failed to check opt-in for " + uid, e));
+                .addOnFailureListener(e ->
+                        Log.e("NOTIF", "Failed to check opt-in for " + uid, e)
+                );
     }
 
-
     /**
-     * Sends a notification to all entrants with a given invite status,
-     * but ONLY if they have not opted out of notifications.
+     * Sends the same notification to all invitees with a given status
+     * (e.g., "invited" or "cancelled"), respecting per-user opt-out.
+     *
+     * @param eventId Event ID.
+     * @param status  Invite status to filter by.
+     * @param title   Notification title.
+     * @param message Notification message body.
      */
     private void sendBulkNotification(String eventId, String status,
                                       String title, String message) {
@@ -791,7 +798,9 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .addOnSuccessListener(snap -> {
 
                     if (snap == null || snap.isEmpty()) {
-                        Toast.makeText(getContext(), "No entrants with status: " + status, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(),
+                                "No entrants with status: " + status,
+                                Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -800,7 +809,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         uids.add(d.getId());
                     }
 
-                    // Now check each user’s opt-in setting
+                    //
                     for (String uid : uids) {
                         db.collection("users").document(uid)
                                 .get()
@@ -809,7 +818,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                                     Boolean enabled = userDoc.getBoolean("notificationsEnabled");
                                     if (enabled == null) enabled = true; // default opt-in
 
-                                    if (!enabled) return; // skip
+                                    if (!enabled) return;
 
                                     // Send the notification
                                     DocumentReference notifRef = db.collection("users")
@@ -836,10 +845,20 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Generates a QR code bitmap for the given content and shows it in a dialog.
+     *
+     * @param content String to encode in the QR code.
+     */
     private void generateAndShowQR(String content) {
         try {
             com.google.zxing.Writer writer = new com.google.zxing.qrcode.QRCodeWriter();
-            com.google.zxing.common.BitMatrix matrix = writer.encode(content, com.google.zxing.BarcodeFormat.QR_CODE, 600, 600);
+            com.google.zxing.common.BitMatrix matrix = writer.encode(
+                    content,
+                    com.google.zxing.BarcodeFormat.QR_CODE,
+                    600,
+                    600
+            );
 
             Bitmap bmp = Bitmap.createBitmap(600, 600, Bitmap.Config.RGB_565);
             for (int x = 0; x < 600; x++) {
@@ -855,8 +874,14 @@ public class OrganizerEventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Displays the given QR bitmap in a simple dialog.
+     *
+     * @param qrBitmap Generated QR code bitmap.
+     */
     private void showQRPopup(Bitmap qrBitmap) {
-        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+        androidx.appcompat.app.AlertDialog.Builder builder =
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext());
         ImageView img = new ImageView(requireContext());
         img.setImageBitmap(qrBitmap);
 
@@ -864,6 +889,12 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .setPositiveButton("Close", null)
                 .show();
     }
+
+    /**
+     * Updates the "Send Lottery" button text, enabled state, and color based on:
+     * - Whether the lottery has already been run (lotteryDone)
+     * - Whether the registration window has closed (registrationClosed)
+     */
     private void updateLotteryButtonUi() {
         if (!isAdded() || getContext() == null || buttonSendLottery == null) return;
 
@@ -879,12 +910,11 @@ public class OrganizerEventDetailsFragment extends Fragment {
             );
 
         } else {
-            // Always show SEND LOTTERY
+            // Lottery not yet sent
             buttonSendLottery.setText("SEND LOTTERY");
 
-            // Style depends on if registration closed
             if (!registrationClosed) {
-                // Greyed out but still clickable
+                // Registration still open visually greyed out, but click shows toast
                 buttonSendLottery.setEnabled(true);
                 buttonSendLottery.setBackgroundTintList(
                         ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray)
@@ -893,7 +923,7 @@ public class OrganizerEventDetailsFragment extends Fragment {
                         ContextCompat.getColor(requireContext(), android.R.color.white)
                 );
             } else {
-                // Active + real black button
+                // Registration closed active black button
                 buttonSendLottery.setEnabled(true);
                 buttonSendLottery.setBackgroundTintList(
                         ContextCompat.getColorStateList(requireContext(), android.R.color.black)
@@ -904,8 +934,17 @@ public class OrganizerEventDetailsFragment extends Fragment {
             }
         }
     }
+
     /**
-     * Logs a notification to the top-level "notification_logs" collection.
+     * Logs any notification (winner, loser, waitlist, bulk, etc.) to the global
+     * "notification_logs" collection for audit / analytics.
+     *
+     * @param eventId    Event ID.
+     * @param organizerId Organizer's user ID.
+     * @param recipientId Recipient user ID.
+     * @param type       Logical type (e.g. "lottery_win").
+     * @param title      Notification title.
+     * @param message    Notification message body.
      */
     private void logNotificationToGlobal(
             String eventId,
@@ -931,8 +970,4 @@ public class OrganizerEventDetailsFragment extends Fragment {
                 .addOnSuccessListener(a -> Log.d("NOTIF_LOG", "Log created"))
                 .addOnFailureListener(e -> Log.e("NOTIF_LOG", "Error creating log", e));
     }
-
-
-
 }
-

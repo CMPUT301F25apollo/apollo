@@ -24,6 +24,19 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * UpcomingEventsFragment.java
+ *
+ * Displays a list of upcoming events that the user is *registered* for.
+ * This fragment filters events by date (must be in the future) and checks
+ * if the user's ID exists in the event's registrations subcollection.
+ *
+ * Responsibilities:
+ * - Query all events from Firestore
+ * - Determine which ones occur in the future
+ * - Filter to only those the user is registered in
+ * - Display them in a RecyclerView using EventsAdapter
+ */
 public class UpcomingEventsFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -47,6 +60,7 @@ public class UpcomingEventsFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.recyclerEvents);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+
         adapter = new EventsAdapter(events);
         recyclerView.setAdapter(adapter);
 
@@ -59,11 +73,15 @@ public class UpcomingEventsFragment extends Fragment {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", event.getId());
 
-            NavHostFragment.findNavController(UpcomingEventsFragment.this)
+            NavHostFragment.findNavController(this)
                     .navigate(R.id.navigation_event_details, bundle);
         });
     }
 
+    /**
+     * Loads all events from Firestore, filters to future dates,
+     * then checks if the current user is registered for them.
+     */
     private void loadUpcomingEvents() {
         String uid = mAuth.getCurrentUser().getUid();
 
@@ -80,7 +98,7 @@ public class UpcomingEventsFragment extends Fragment {
 
                         if (!isFuture(event.getDate())) continue;
 
-                        // Now check if user is registered
+                        // Check if user is registered
                         doc.getReference()
                                 .collection("registrations")
                                 .document(uid)
@@ -95,6 +113,12 @@ public class UpcomingEventsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Checks if an event date is in the future.
+     *
+     * @param dateStr A date formatted as MM/dd/yyyy.
+     * @return true if the event happens after today.
+     */
     private boolean isFuture(String dateStr) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.US);

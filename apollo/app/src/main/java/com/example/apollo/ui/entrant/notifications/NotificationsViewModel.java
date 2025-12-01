@@ -6,19 +6,20 @@ import com.google.firebase.firestore.DocumentSnapshot;
 /**
  * NotificationsViewModel.java
  *
- * Purpose:
- * Represents a single notification item that is stored in Firestore.
- * Contains all the data needed to display a notification in the UI.
+ * A simple data model representing one notification stored in Firestore.
+ * This class holds all fields needed for displaying notifications inside
+ * the RecyclerView, and provides a helper method to construct itself
+ * from a Firestore DocumentSnapshot.
  *
- * Design Pattern:
- * Acts as a simple data model (part of MVC) that holds information
- * retrieved from Firestore and used by the NotificationsAdapter.
- *
- * Notes:
- * - Each notification includes a title, message, timestamp, and read status.
- * - Can be extended later to include other fields such as sender or action links.
+ * Key fields:
+ * - type: identifies the notification category (lottery win, system, etc.)
+ * - title/message: content shown to the user
+ * - eventId: event this notification belongs to (if any)
+ * - status: response state ("accepted", "declined", or null)
+ * - createdAt: timestamp for sorting
  */
 public class NotificationsViewModel {
+
     public String id;
     public String type;
     public String title;
@@ -26,27 +27,29 @@ public class NotificationsViewModel {
     public String eventId;
     public boolean read;
     public Timestamp createdAt;
-    public String status; // "accepted", "declined", or null
+    public String status;
 
-    /**n
-     * Converts a Firestore document into a NotificationsViewModel object.
+    /**
+     * Creates a NotificationsViewModel object from a Firestore document.
      *
-     * @param d The Firestore DocumentSnapshot containing notification data.
-     * @return A NotificationsViewModel object with data from the document.
+     * @param d Firestore snapshot containing notification data.
+     * @return A fully populated {@link NotificationsViewModel}.
      */
     public static NotificationsViewModel from(DocumentSnapshot d) {
         NotificationsViewModel n = new NotificationsViewModel();
+
         n.id       = d.getId();
         n.type     = d.getString("type");
         n.title    = d.getString("title");
         n.message  = d.getString("message");
         n.eventId  = d.getString("eventId");
-        n.status = d.getString("status");
+        n.status   = d.getString("status");
 
-        Boolean r  = d.getBoolean("read");
-        n.read     = (r != null && r);
+        Boolean r = d.getBoolean("read");
+        n.read = (r != null && r);
 
         n.createdAt = d.getTimestamp("createdAt");
+
         return n;
     }
 }

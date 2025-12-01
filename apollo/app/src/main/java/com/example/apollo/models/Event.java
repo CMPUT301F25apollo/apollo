@@ -43,19 +43,13 @@ public class Event {
         this.eventPosterUrl = eventPosterUrl;
     }
 
-    // ------------------------------------------------------------------------
-    // ID (NEW)
-    // ------------------------------------------------------------------------
-
     /** @return the Firestore document ID */
     public String getId() { return id; }
 
     /** @param id sets the Firestore document ID */
     public void setId(String id) { this.id = id; }
 
-    // ------------------------------------------------------------------------
-    // Getters
-    // ------------------------------------------------------------------------
+    //getters
 
     public String getTitle() { return title; }
     public String getDescription() { return description; }
@@ -68,10 +62,7 @@ public class Event {
     public String getRegistrationEnd() { return registrationEnd; }
     public String getEventPosterUrl() { return eventPosterUrl; }
 
-    // ------------------------------------------------------------------------
-    // Setters
-    // ------------------------------------------------------------------------
-
+    // setters
     public void setTitle(String title) { this.title = title; }
     public void setDescription(String description) { this.description = description; }
     public void setLocation(String location) { this.location = location; }

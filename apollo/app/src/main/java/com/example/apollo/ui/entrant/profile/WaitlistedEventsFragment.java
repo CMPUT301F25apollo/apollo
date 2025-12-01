@@ -24,6 +24,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * WaitlistedEventsFragment.java
+ *
+ * Displays a list of upcoming events where the user is currently on the waitlist.
+ *
+ * Logic flow:
+ * - Fetch all events
+ * - Filter out events that have already passed
+ * - Check each event's waitlist collection for the current user
+ * - Only display events where the user's state == "waiting"
+ */
 public class WaitlistedEventsFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -47,23 +58,29 @@ public class WaitlistedEventsFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.recyclerEvents);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+
         adapter = new EventsAdapter(events);
         recyclerView.setAdapter(adapter);
 
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+
         adapter.setOnEventClickListener(event -> {
             Bundle bundle = new Bundle();
             bundle.putString("eventId", event.getId());
 
-            NavHostFragment.findNavController(WaitlistedEventsFragment.this)
+            NavHostFragment.findNavController(this)
                     .navigate(R.id.navigation_event_details, bundle);
         });
 
         loadWaitlistedEvents();
     }
 
+    /**
+     * Loads all upcoming events where the user appears in the waitlist
+     * with state == "waiting".
+     */
     private void loadWaitlistedEvents() {
         String uid = mAuth.getCurrentUser().getUid();
 
@@ -80,7 +97,7 @@ public class WaitlistedEventsFragment extends Fragment {
 
                         if (!isFuture(event.getDate())) continue;
 
-                        // Check waitlist
+                        // Check user waitlist state
                         doc.getReference()
                                 .collection("waitlist")
                                 .document(uid)
@@ -97,6 +114,12 @@ public class WaitlistedEventsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Determines whether the event date occurs in the future.
+     *
+     * @param dateStr Date formatted as MM/dd/yyyy.
+     * @return true if the event has not happened yet.
+     */
     private boolean isFuture(String dateStr) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.US);
