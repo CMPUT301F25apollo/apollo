@@ -10,7 +10,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -30,15 +29,13 @@ import com.example.apollo.R;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.common.util.concurrent.ListenableFuture;
 
-// ML Kit imports (NOTE: Barcode is in .barcode.common)
-import com.google.firebase.firestore.FirebaseFirestore;
+// ML Kit
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
 
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,7 +49,7 @@ public class QrScannerFragment extends Fragment {
 
     private ExecutorService cameraExecutor;
     private BarcodeScanner barcodeScanner;
-    private boolean hasScannedResult = false;
+    private boolean hasScanned = false;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -64,27 +61,31 @@ public class QrScannerFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view,
                               @Nullable Bundle savedInstanceState) {
+
         super.onViewCreated(view, savedInstanceState);
 
         previewView = view.findViewById(R.id.previewView);
+
         overlayText = view.findViewById(R.id.scanOverlayText);
-        hasScannedResult = false;
 
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // Only scan QR codes
         BarcodeScannerOptions options =
                 new BarcodeScannerOptions.Builder()
                         .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
                         .build();
+
         barcodeScanner = BarcodeScanning.getClient(options);
 
-        // Check camera permission
+
+        // Permission
         if (ContextCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED) {
+
             startCamera();
+
         } else {
             requestPermissions(
                     new String[]{Manifest.permission.CAMERA},
@@ -95,42 +96,42 @@ public class QrScannerFragment extends Fragment {
 
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void startCamera() {
+
+        hasScanned = false; // Reset scanning each time camera restarts
+
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
                 ProcessCameraProvider.getInstance(requireContext());
 
         cameraProviderFuture.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+
+                ProcessCameraProvider provider = cameraProviderFuture.get();
 
                 Preview preview = new Preview.Builder().build();
-                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+                CameraSelector selector = CameraSelector.DEFAULT_BACK_CAMERA;
 
-                ImageAnalysis imageAnalysis =
+                ImageAnalysis analysis =
                         new ImageAnalysis.Builder()
-                                .setBackpressureStrategy(
-                                        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build();
 
-                imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeImage);
+                analysis.setAnalyzer(cameraExecutor, this::analyzeImage);
 
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(
-                        this,
-                        cameraSelector,
-                        preview,
-                        imageAnalysis
-                );
+                provider.unbindAll();
+                provider.bindToLifecycle(this, selector, preview, analysis);
+
             } catch (ExecutionException | InterruptedException e) {
-                Log.e("QrScannerFragment", "Error starting camera", e);
+                Log.e("QrScannerFragment", "Camera error", e);
             }
         }, ContextCompat.getMainExecutor(requireContext()));
     }
 
     @ExperimentalGetImage
     private void analyzeImage(@NonNull ImageProxy imageProxy) {
-        if (hasScannedResult) {
+
+        if (hasScanned) {
             imageProxy.close();
             return;
         }
@@ -148,101 +149,64 @@ public class QrScannerFragment extends Fragment {
 
         barcodeScanner.process(image)
                 .addOnSuccessListener(barcodes -> {
-                    if (barcodes == null || barcodes.isEmpty()) return;
 
-                    Barcode barcode = barcodes.get(0);
-                    String rawValue = barcode.getRawValue();
-                    if (rawValue != null && !hasScannedResult) {
-                        rawValue = rawValue.trim();                       // 👈 remove any spaces/newlines
-                        Log.d("QrScannerFragment", "QR raw value = " + rawValue);
-                        hasScannedResult = true;
-                        showResultDialog(rawValue);
+                    if (barcodes == null || barcodes.isEmpty())
+                        return;
+
+                    Barcode code = barcodes.get(0);
+                    String eventId = code.getRawValue();
+
+                    if (eventId != null && !hasScanned) {
+                        hasScanned = true;
+                        showResultDialog(eventId);
                     }
                 })
                 .addOnFailureListener(e ->
-                        Log.e("QrScannerFragment", "Barcode scanning failed", e))
+                        Log.e("QrScannerFragment", "Scan failed", e))
                 .addOnCompleteListener(task -> imageProxy.close());
     }
 
-    private void showResultDialog(String eventQrValue) {
+    private void showResultDialog(String eventId) {
+
         if (!isAdded()) return;
 
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("QR Code detected")
+                .setTitle("QR Code Detected")
                 .setMessage("Open this event?")
-                .setPositiveButton("OK", (dialog, which) -> {
+                .setPositiveButton("Open", (dialog, which) -> {
 
-                    // 1️⃣ Query Firestore: find event where eventQR == scanned QR code
-                    FirebaseFirestore.getInstance()
-                            .collection("events")
-                            .whereEqualTo("eventQR", eventQrValue)
-                            .get()
-                            .addOnSuccessListener(snapshot -> {
-                                if (snapshot.isEmpty()) {
-                                    Toast.makeText(getContext(),
-                                            "No event found for this QR code",
-                                            Toast.LENGTH_SHORT).show();
+                    Bundle args = new Bundle();
+                    args.putString("eventId", eventId);
 
-                                    hasScannedResult = false; // allow scanning again
-                                    return;
-                                }
-
-                                // 2️⃣ Get the REAL Firestore document ID
-                                String realEventId = snapshot.getDocuments().get(0).getId();
-
-                                // 3️⃣ Pass that eventId to EventDetailsFragment
-                                Bundle args = new Bundle();
-                                args.putString("eventId", realEventId);
-
-                                NavHostFragment.findNavController(this)
-                                        .navigate(R.id.action_qrScannerFragment_to_navigation_event_details, args);
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(getContext(),
-                                        "Error checking event QR",
-                                        Toast.LENGTH_SHORT).show();
-                                hasScannedResult = false;
-                            });
-
+                    NavHostFragment.findNavController(this)
+                            .navigate(R.id.action_qrScannerFragment_to_navigation_event_details, args);
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> {
-                    hasScannedResult = false;
-                    // restart camera + analyzer
-                    startCamera();
+                    hasScanned = false;
+                    startCamera();   // 🔥 restart scanning
                 })
                 .setCancelable(false)
                 .show();
     }
 
-
-
-
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (cameraExecutor != null) {
-            cameraExecutor.shutdown();
-        }
-        if (barcodeScanner != null) {
-            barcodeScanner.close();
-        }
+        cameraExecutor.shutdown();
+        barcodeScanner.close();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                                           @NonNull String[] perms,
+                                           @NonNull int[] results) {
 
-        if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            if (grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCamera();
-            } else {
-                // No permission → go back
-                NavHostFragment.findNavController(this).navigateUp();
-            }
+        if (requestCode == REQUEST_CAMERA_PERMISSION &&
+                results.length > 0 &&
+                results[0] == PackageManager.PERMISSION_GRANTED) {
+            startCamera();
+        } else {
+            NavHostFragment.findNavController(this).navigateUp();
         }
     }
 }
-
