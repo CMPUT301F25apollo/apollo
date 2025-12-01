@@ -111,7 +111,12 @@ public class HomeFragment extends Fragment {
                     allEvents.clear();
 
                     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
-                    Date today = new Date();
+                    Date today = null;
+                    try {
+                        today = sdf.parse(sdf.format(new Date()));
+                    } catch (Exception e) {
+                        today = new Date();
+                    }
 
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String eventId = document.getId();
