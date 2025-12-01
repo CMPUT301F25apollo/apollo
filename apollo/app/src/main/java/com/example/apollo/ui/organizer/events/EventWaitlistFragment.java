@@ -1,5 +1,6 @@
 package com.example.apollo.ui.organizer.events;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -39,14 +40,38 @@ import java.util.Map;
 
 public class EventWaitlistFragment extends Fragment {
 
+    // Simple data class to hold entrant details
+    private static class Entrant {
+        String id;
+        String name;
+        String status;
+
+        Entrant(String id, String name, String status) {
+            this.id = id;
+            this.name = name;
+            this.status = status;
+        }
+
+        String getId() { return id; }
+        String getName() { return name; }
+        String getStatus() { return status; }
+
+        @NonNull
+        @Override
+        public String toString() {
+            // This is what will be displayed in the ListView
+            return name + " – " + status;
+        }
+    }
+
     private ListView listView;
     private TextView emptyTextView;
-    private ArrayAdapter<String> adapter;
-    private final List<String> entrantsList = new ArrayList<>();
+    private ArrayAdapter<Entrant> adapter;
+    private final List<Entrant> entrantsList = new ArrayList<>();
+    private final List<Entrant> allEntrants = new ArrayList<>();
 
     private FirebaseFirestore db;
     private String eventId;
-    private final List<String> allEntrants = new ArrayList<>();
     private Spinner filterSpinner;
 
     @Nullable
@@ -66,7 +91,7 @@ public class EventWaitlistFragment extends Fragment {
         listView.setEmptyView(emptyTextView);
 
         // Setup for Spinner
-        String[] filterOptions = {"All", "Accepted", "Declined", "Winner", "Loser", "Waiting"};
+        String[] filterOptions = {"All", "Accepted", "Declined", "Winner", "Loser", "Waiting", "Cancelled"};
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         filterSpinner.setAdapter(spinnerAdapter);
@@ -83,27 +108,63 @@ public class EventWaitlistFragment extends Fragment {
             }
         });
 
+        // Set click listener for cancellation
+        listView.setOnItemClickListener((parent, itemView, position, id) -> {
+            Entrant selectedEntrant = entrantsList.get(position);
+            // We can only cancel invitations for people who have won but not yet responded
+            if ("Invited".equalsIgnoreCase(selectedEntrant.getStatus())) {
+                showCancelInvitationDialog(selectedEntrant);
+            } else {
+                Toast.makeText(getContext(), "Only invited entrants (status: Invited) can be cancelled.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
         db = FirebaseFirestore.getInstance();
 
-        // Get eventId from arguments
         if (getArguments() != null) {
             eventId = getArguments().getString("eventId");
             loadWaitlistEntrants();
         }
 
-        // Export CSV button
         Button exportButton = view.findViewById(R.id.exportCsvButton);
         exportButton.setOnClickListener(v -> exportWaitlistToCsv());
 
         return view;
+    }
+    
+    private void showCancelInvitationDialog(Entrant entrant) {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Cancel Invitation")
+                .setMessage("Are you sure you want to cancel the invitation for " + entrant.getName() + "? This action cannot be undone.")
+                .setPositiveButton("Yes, Cancel", (dialog, which) -> cancelInvitation(entrant))
+                .setNegativeButton("No", null)
+                .show();
+    }
+    
+    private void cancelInvitation(Entrant entrant) {
+        if (eventId == null || entrant == null || entrant.getId() == null) {
+            Toast.makeText(getContext(), "Error: Cannot cancel invitation.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+    
+        db.collection("events").document(eventId)
+                .collection("waitlist").document(entrant.getId())
+                .update("state", "Cancelled")
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), entrant.getName() + "'s invitation has been cancelled.", Toast.LENGTH_SHORT).show();
+                    loadWaitlistEntrants(); // Refresh the list to show the new status
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Failed to cancel invitation. Please try again.", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void loadWaitlistEntrants() {
         if (eventId == null) return;
 
         emptyTextView.setText("Loading entrants...");
-        entrantsList.clear();
-        adapter.notifyDataSetChanged();
+        allEntrants.clear();
+        applyFilter();
 
         Task<QuerySnapshot> waitlistTask = db.collection("events").document(eventId).collection("waitlist").get();
         Task<QuerySnapshot> registrationsTask = db.collection("events").document(eventId).collection("registrations").get();
@@ -112,19 +173,16 @@ public class EventWaitlistFragment extends Fragment {
         Tasks.whenAllSuccess(waitlistTask, registrationsTask, declinedTask).addOnSuccessListener(snapshots -> {
             Map<String, String> entrantStates = new HashMap<>();
 
-            // Process declined first
             QuerySnapshot declinedSnapshot = (QuerySnapshot) snapshots.get(2);
             for (QueryDocumentSnapshot doc : declinedSnapshot) {
                 entrantStates.put(doc.getId(), "Declined");
             }
 
-            // Process registrations next
             QuerySnapshot registrationsSnapshot = (QuerySnapshot) snapshots.get(1);
             for (QueryDocumentSnapshot doc : registrationsSnapshot) {
                 entrantStates.put(doc.getId(), "Accepted");
             }
 
-            // Process waitlist for users not already processed
             QuerySnapshot waitlistSnapshot = (QuerySnapshot) snapshots.get(0);
             for (QueryDocumentSnapshot doc : waitlistSnapshot) {
                 if (!entrantStates.containsKey(doc.getId())) {
@@ -146,7 +204,7 @@ public class EventWaitlistFragment extends Fragment {
             }
 
             Tasks.whenAllSuccess(userDetailTasks).addOnSuccessListener(userSnapshots -> {
-                List<String> newEntrantsList = new ArrayList<>();
+                List<Entrant> newEntrantsList = new ArrayList<>();
                 for (Object snapshot : userSnapshots) {
                     DocumentSnapshot userDoc = (DocumentSnapshot) snapshot;
                     if (!userDoc.exists()) continue;
@@ -158,15 +216,15 @@ public class EventWaitlistFragment extends Fragment {
 
                     if (status != null) {
                         String displayStatus = status.substring(0, 1).toUpperCase() + status.substring(1);
-                        newEntrantsList.add(displayName + " – " + displayStatus);
+                        newEntrantsList.add(new Entrant(entrantId, displayName, displayStatus));
                     }
                 }
 
-                Collections.sort(newEntrantsList);
+                Collections.sort(newEntrantsList, (e1, e2) -> e1.getName().compareToIgnoreCase(e2.getName()));
 
                 allEntrants.clear();
                 allEntrants.addAll(newEntrantsList);
-                applyFilter(); // This will handle updating entrantsList and the adapter
+                applyFilter();
 
                 if (allEntrants.isEmpty()) {
                     emptyTextView.setText("No entrants found");
@@ -189,14 +247,13 @@ public class EventWaitlistFragment extends Fragment {
         }
 
         String selectedFilter = filterSpinner.getSelectedItem().toString();
-        List<String> filteredList = new ArrayList<>();
+        List<Entrant> filteredList = new ArrayList<>();
 
         if (selectedFilter.equals("All")) {
             filteredList.addAll(allEntrants);
         } else {
-            for (String entry : allEntrants) {
-                // The status is after " – "
-                if (entry.endsWith("– " + selectedFilter)) {
+            for (Entrant entry : allEntrants) {
+                if (entry.getStatus().equalsIgnoreCase(selectedFilter)) {
                     filteredList.add(entry);
                 }
             }
@@ -223,15 +280,10 @@ public class EventWaitlistFragment extends Fragment {
         }
 
         StringBuilder csvBuilder = new StringBuilder();
-        csvBuilder.append("Name,Status");
+        csvBuilder.append("Name,Status\n");
 
-        for (String entry : entrantsList) {
-            String[] parts = entry.split(" – ");
-            String name = parts[0];
-            String status = (parts.length > 1) ? parts[1] : "unknown";
-
-            csvBuilder.append(" ");
-            csvBuilder.append(name).append(",").append(status);
+        for (Entrant entry : entrantsList) {
+            csvBuilder.append(entry.getName()).append(",").append(entry.getStatus()).append("\n");
         }
 
         try {
