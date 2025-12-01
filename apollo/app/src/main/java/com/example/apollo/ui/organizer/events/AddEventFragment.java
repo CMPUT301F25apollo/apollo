@@ -10,21 +10,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import com.bumptech.glide.Glide;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
 import com.example.apollo.R;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -33,7 +28,6 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -45,52 +39,31 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * AddEventFragment.java
- *
- * Purpose:
- * Allows organizers to create or edit events. Users can input event details such as title,
- * description, date, time, capacity, registration period, and upload an event image.
- * Handles image uploads to Firebase Storage and event data storage in Firestore.
- *
- * Design Pattern:
- * Acts as a Controller in the MVC pattern, managing interactions between the view (form inputs)
- * and the model (Firestore and Firebase Storage).
- *
- * Notes:
- * - Validates input fields before saving or updating events.
- * - Handles both new event creation and editing existing events.
- * - Displays simple error messages using Toasts for user feedback.
- */
 public class AddEventFragment extends Fragment {
 
     private static final int IMAGE_PICK_REQUEST = 1001;
 
     private TextInputEditText eventTitle, eventDescription, eventDate, eventTime, eventLocation,
             eventCapacity, eventPrice, waitlistCapacity, registrationOpen, registrationClose;
+
     private Button buttonAM, buttonPM, buttonSaveEvent, buttonSelectImage, buttonRemoveImage;
     private ImageView eventImagePreview;
+
     private String ampm = "";
     private FirebaseFirestore db;
     private StorageReference storageRef;
-    private Uri selectedImageUri = null;
-    private String existingImageUrl = null; // used in edit mode
-    private String eventId = null; // indicates edit mode
     private FirebaseAuth mAuth;
+
+    private Uri selectedImageUri = null;
+    private String existingImageUrl = null;
+    private String eventId = null;
+
     private Switch switchButton;
-    private CheckBox catYoga, catFitness, catKidsSports, catMartialArts, catTennis, catAquatics, catAdultSports, catWellness, catCreative, catCamps;
 
+    // Category checkboxes
+    private CheckBox catYoga, catFitness, catKidsSports, catMartialArts, catTennis,
+            catAquatics, catAdultSports, catWellness, catCreative, catCamps;
 
-
-    /**
-     * Called when the fragment’s view is created.
-     * Initializes all UI elements, Firebase instances, and event listeners.
-     *
-     * @param inflater Used to inflate the fragment layout.
-     * @param container The parent view group.
-     * @param savedInstanceState The saved instance state, if available.
-     * @return The root view of the fragment.
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -103,7 +76,7 @@ public class AddEventFragment extends Fragment {
         storageRef = FirebaseStorage.getInstance().getReference();
         mAuth = FirebaseAuth.getInstance();
 
-        // Initialize view elements
+        // Initialize UI
         eventTitle = view.findViewById(R.id.eventTitle);
         eventDescription = view.findViewById(R.id.eventDescription);
         eventLocation = view.findViewById(R.id.eventLocation);
@@ -121,6 +94,8 @@ public class AddEventFragment extends Fragment {
         buttonRemoveImage = view.findViewById(R.id.buttonRemoveImage);
         eventImagePreview = view.findViewById(R.id.eventImagePreview);
         switchButton = view.findViewById(R.id.switchButton);
+
+        // Categories
         catYoga = view.findViewById(R.id.catYoga);
         catFitness = view.findViewById(R.id.catFitness);
         catKidsSports = view.findViewById(R.id.catKidsSports);
@@ -132,35 +107,26 @@ public class AddEventFragment extends Fragment {
         catCreative = view.findViewById(R.id.catCreative);
         catCamps = view.findViewById(R.id.catCamps);
 
-
-        // Check if editing an existing event
+        // Editing existing event
         if (getArguments() != null && getArguments().containsKey("eventId")) {
             eventId = getArguments().getString("eventId");
             buttonSaveEvent.setText("Update Event");
             loadEventDataForEditing(eventId);
         }
 
-        // Set listeners for AM/PM buttons
+        // AM/PM buttons
         buttonAM.setOnClickListener(v -> selectAMPM("AM"));
         buttonPM.setOnClickListener(v -> selectAMPM("PM"));
 
-        // Image selection and removal
+        // Image selection/removal
         buttonSelectImage.setOnClickListener(v -> openImagePicker());
         buttonRemoveImage.setOnClickListener(v -> {
             selectedImageUri = null;
             existingImageUrl = null;
             eventImagePreview.setImageResource(android.R.color.transparent);
-            Toast.makeText(getContext(), "Image removed", Toast.LENGTH_SHORT).show();
         });
 
-        switchButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked)
-                Toast.makeText(getContext(), "Geolocation on", Toast.LENGTH_SHORT).show();
-            else
-                Toast.makeText(getContext(), "Geolocation off", Toast.LENGTH_SHORT).show();
-        });
-
-        // Save or update event
+        // Save/Update event
         buttonSaveEvent.setOnClickListener(v -> {
             if (validateInputs()) {
                 if (selectedImageUri != null) {
@@ -174,14 +140,10 @@ public class AddEventFragment extends Fragment {
         return view;
     }
 
-    /**
-     * Handles AM/PM button styling and value selection.
-     *
-     * @param selection The selected time period ("AM" or "PM").
-     */
     private void selectAMPM(String selection) {
         ampm = selection;
-        if ("AM".equals(selection)) {
+
+        if (selection.equals("AM")) {
             buttonAM.setBackgroundColor(getResources().getColor(R.color.purple_200));
             buttonPM.setBackgroundColor(getResources().getColor(android.R.color.darker_gray));
         } else {
@@ -190,280 +152,137 @@ public class AddEventFragment extends Fragment {
         }
     }
 
-    /**
-     * Opens an image picker for the user to select an event image.
-     */
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         startActivityForResult(Intent.createChooser(intent, "Select Image"), IMAGE_PICK_REQUEST);
     }
 
-    /**
-     * Called when the user selects an image from the picker.
-     */
     @Override
-    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == IMAGE_PICK_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+    public void onActivityResult(int req, int res, @Nullable Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == IMAGE_PICK_REQUEST && res == Activity.RESULT_OK && data != null) {
             selectedImageUri = data.getData();
             eventImagePreview.setImageURI(selectedImageUri);
         }
     }
 
-    /**
-     * Uploads the selected image to Firebase Storage, then saves or updates the event.
-     */
     private void uploadImageAndSaveEvent() {
         if (selectedImageUri == null) return;
 
         String filename = UUID.randomUUID().toString() + ".jpg";
-        StorageReference imageRef = storageRef.child("event_posters/" + filename);
+        StorageReference imgRef = storageRef.child("event_posters/" + filename);
 
-        imageRef.putFile(selectedImageUri)
-                .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl()
-                        .addOnSuccessListener(uri -> saveEvent(uri.toString()))
-                        .addOnFailureListener(e ->
-                                Toast.makeText(getContext(), "Failed to get image URL", Toast.LENGTH_SHORT).show()))
+        imgRef.putFile(selectedImageUri)
+                .addOnSuccessListener(t -> imgRef.getDownloadUrl()
+                        .addOnSuccessListener(uri -> saveEvent(uri.toString())))
                 .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "Image upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        Toast.makeText(getContext(), "Image upload failed", Toast.LENGTH_SHORT).show());
     }
 
-    /**
-     * Saves or updates event data in Firestore.
-     *
-     * @param imageUrl The URL of the uploaded image (if available).
-     */
     private void saveEvent(String imageUrl) {
         Map<String, Object> event = buildEventMap();
+
         if (imageUrl != null) event.put("eventPosterUrl", imageUrl);
 
-        // 🔹 QR saved once forever - not regenerated later
-        if (eventId == null) { // new event only
-            String qrCodeString = UUID.randomUUID().toString();
-            event.put("eventQR", qrCodeString);
-        }
+        // New event extras
         if (eventId == null) {
+            event.put("eventQR", UUID.randomUUID().toString());
             event.put("lotteryDone", false);
-        }
 
-        if (eventId != null) {
-            db.collection("events").document(eventId)
-                    .set(event, SetOptions.merge())
-                    .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(getContext(), "Event updated.", Toast.LENGTH_SHORT).show();
-                        getParentFragmentManager().popBackStack();
-                    });
-        } else {
             db.collection("events")
                     .add(event)
                     .addOnSuccessListener(doc -> {
                         Toast.makeText(getContext(), "Event created!", Toast.LENGTH_SHORT).show();
                         getParentFragmentManager().popBackStack();
                     });
+        } else {
+            db.collection("events").document(eventId)
+                    .set(event, SetOptions.merge())
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(getContext(), "Event updated.", Toast.LENGTH_SHORT).show();
+                        getParentFragmentManager().popBackStack();
+                    });
         }
-        List<String> categories = new ArrayList<>();
-
-        if (catYoga.isChecked()) categories.add("Yoga & Mindfulness");
-        if (catFitness.isChecked()) categories.add("Strength & Fitness Classes");
-        if (catKidsSports.isChecked()) categories.add("Kids Sports Programs");
-        if (catMartialArts.isChecked()) categories.add("Martial Arts");
-        if (catTennis.isChecked()) categories.add("Tennis & Racquet Sports");
-        if (catAquatics.isChecked()) categories.add("Aquatics & Swimming Lessons");
-        if (catAdultSports.isChecked()) categories.add("Adult Drop-In Sports");
-        if (catWellness.isChecked()) categories.add("Health & Wellness Workshops");
-        if (catCreative.isChecked()) categories.add("Arts, Music & Creative Programs");
-        if (catCamps.isChecked()) categories.add("Special Events & Camps");
-
-        event.put("categories", categories);
     }
 
+    private void loadEventDataForEditing(String id) {
+        db.collection("events").document(id)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) return;
 
-    /**
-     * Loads event details from Firestore when editing an existing event.
-     *
-     * @param eventId The ID of the event to edit.
-     */
-    private void loadEventDataForEditing(String eventId) {
-        DocumentReference eventRef = db.collection("events").document(eventId);
-        eventRef.get().addOnSuccessListener(document -> {
-            if (document.exists()) {
-                eventTitle.setText(document.getString("title"));
-                eventDescription.setText(document.getString("description"));
-                eventLocation.setText(document.getString("location"));
-                eventDate.setText(document.getString("date"));
+                    eventTitle.setText(doc.getString("title"));
+                    eventDescription.setText(doc.getString("description"));
+                    eventLocation.setText(doc.getString("location"));
+                    eventDate.setText(doc.getString("date"));
 
-                String timeValue = document.getString("time");
-                if (timeValue != null) {
-                    eventTime.setText(timeValue.replaceAll("(AM|PM)", "").trim());
-                    if (timeValue.contains("PM")) selectAMPM("PM");
-                    else selectAMPM("AM");
-                }
-
-                if (timeValue.contains("PM")) {
-                    ampm = "PM";
-                    selectAMPM("PM");
-                } else {
-                    ampm = "AM";
-                    selectAMPM("AM");
-                }
-
-
-                if (document.contains("eventCapacity"))
-                    eventCapacity.setText(String.valueOf(document.getLong("eventCapacity")));
-
-                if (document.contains("price"))
-                    eventPrice.setText(String.valueOf(document.getDouble("price")));
-
-                if (document.contains("waitlistCapacity"))
-                    waitlistCapacity.setText(String.valueOf(document.getLong("waitlistCapacity")));
-
-                registrationOpen.setText(document.getString("registrationOpen"));
-                registrationClose.setText(document.getString("registrationClose"));
-
-                // Load image if exists
-                if (document.contains("eventPosterUrl")) {
-                    existingImageUrl = document.getString("eventPosterUrl");
-                    Glide.with(requireContext())
-                            .load(existingImageUrl)
-                            .into(eventImagePreview);
-                }
-                if (document.contains("categories")) {
-                    List<String> catList = (List<String>) document.get("categories");
-
-                    if (catList != null) {
-                        catYoga.setChecked(catList.contains("Yoga & Mindfulness"));
-                        catFitness.setChecked(catList.contains("Strength & Fitness Classes"));
-                        catKidsSports.setChecked(catList.contains("Kids Sports Programs"));
-                        catMartialArts.setChecked(catList.contains("Martial Arts"));
-                        catTennis.setChecked(catList.contains("Tennis & Racquet Sports"));
-                        catAquatics.setChecked(catList.contains("Aquatics & Swimming Lessons"));
-                        catAdultSports.setChecked(catList.contains("Adult Drop-In Sports"));
-                        catWellness.setChecked(catList.contains("Health & Wellness Workshops"));
-                        catCreative.setChecked(catList.contains("Arts, Music & Creative Programs"));
-                        catCamps.setChecked(catList.contains("Special Events & Camps"));
+                    String timeVal = doc.getString("time");
+                    if (timeVal != null) {
+                        eventTime.setText(timeVal.replaceAll("(AM|PM)", "").trim());
+                        selectAMPM(timeVal.contains("PM") ? "PM" : "AM");
                     }
-                }
-            }
-        }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));
+
+                    eventCapacity.setText(String.valueOf(doc.getLong("eventCapacity")));
+                    eventPrice.setText(String.valueOf(doc.getDouble("price")));
+                    waitlistCapacity.setText(String.valueOf(doc.getLong("waitlistCapacity")));
+                    registrationOpen.setText(doc.getString("registrationOpen"));
+                    registrationClose.setText(doc.getString("registrationClose"));
+
+                    existingImageUrl = doc.getString("eventPosterUrl");
+                    if (existingImageUrl != null) {
+                        Glide.with(requireContext()).load(existingImageUrl).into(eventImagePreview);
+                    }
+
+                    List<String> cats = (List<String>) doc.get("categories");
+                    if (cats != null) {
+                        catYoga.setChecked(cats.contains("Yoga and Mindfulness"));
+                        catFitness.setChecked(cats.contains("Strength and Fitness Classes"));
+                        catKidsSports.setChecked(cats.contains("Kids Sports Programs"));
+                        catMartialArts.setChecked(cats.contains("Martial Arts"));
+                        catTennis.setChecked(cats.contains("Tennis and Racquet Sports"));
+                        catAquatics.setChecked(cats.contains("Aquatics and Swimming Lessons"));
+                        catAdultSports.setChecked(cats.contains("Adult Drop-In Sports"));
+                        catWellness.setChecked(cats.contains("Health and Wellness Workshops"));
+                        catCreative.setChecked(cats.contains("Arts, Music and Creative Programs"));
+                        catCamps.setChecked(cats.contains("Special Events and Camps"));
+                    }
+
+                });
     }
 
-    /**
-     * Validates all event input fields before saving.
-     *
-     * @return true if all inputs are valid, false otherwise.
-     */
     private boolean validateInputs() {
-        if (eventTitle.getText().toString().trim().isEmpty()) {
-            eventTitle.setError("Required");
-            return false;
-        }
-        if (eventDescription.getText().toString().trim().isEmpty()) {
-            eventDescription.setError("Required");
-            return false;
-        }
-        if (eventLocation.getText().toString().trim().isEmpty()) {
-            eventLocation.setError("Required");
-            return false;
-        }
-        if (eventDate.getText().toString().trim().isEmpty() ||
-                eventTime.getText().toString().trim().isEmpty() ||
-                ampm.isEmpty()) {
-            Toast.makeText(getContext(), "Enter event date, time, and AM/PM", Toast.LENGTH_SHORT).show();
-            return false;
-        }
+        if (eventTitle.getText().toString().trim().isEmpty()) return error(eventTitle);
+        if (eventDescription.getText().toString().trim().isEmpty()) return error(eventDescription);
+        if (eventLocation.getText().toString().trim().isEmpty()) return error(eventLocation);
+        if (eventDate.getText().toString().trim().isEmpty()) return toast("Enter a date");
+        if (eventTime.getText().toString().trim().isEmpty() || ampm.isEmpty())
+            return toast("Enter time and AM/PM");
 
         try {
-            int capacity = Integer.parseInt(eventCapacity.getText().toString().trim());
-            if (capacity <= 0) throw new NumberFormatException();
-            double price = Double.parseDouble(eventPrice.getText().toString().trim());
-            if (price < 0) throw new NumberFormatException();
-            int waitlist = Integer.parseInt(waitlistCapacity.getText().toString().trim());
-            if (waitlist < 0) throw new NumberFormatException();
-        } catch (NumberFormatException e) {
-            Toast.makeText(getContext(), "Invalid numeric value", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        if (registrationOpen.getText().toString().trim().isEmpty() ||
-                registrationClose.getText().toString().trim().isEmpty()) {
-            Toast.makeText(getContext(), "Enter registration dates", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.US);
-        try {
-            String eventDateTimeStr = eventDate.getText().toString().trim() + " " +
-                    eventTime.getText().toString().trim() + " " + ampm;
-            Date eventDateTime = dateFormat.parse(eventDateTimeStr);
-
-            Date regOpen = new SimpleDateFormat("MM/dd/yyyy", Locale.US)
-                    .parse(registrationOpen.getText().toString().trim());
-            Date regClose = new SimpleDateFormat("MM/dd/yyyy", Locale.US)
-                    .parse(registrationClose.getText().toString().trim());
-
-            Date now = new Date();
-
-            if (eventDateTime.before(now)) {
-                Toast.makeText(getContext(), "Event date/time cannot be in the past", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            if (regOpen.after(regClose)) {
-                Toast.makeText(getContext(), "Registration open must be before close", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            if (regClose.after(eventDateTime)) {
-                Toast.makeText(getContext(), "Registration close must be before event date", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-//            if (regOpen.before(now) || regClose.before(now)) {
-//                Toast.makeText(getContext(), "Registration dates cannot be in the past", Toast.LENGTH_SHORT).show();
-//                return false;
-//            }
-
-        } catch (ParseException e) {
-            Toast.makeText(getContext(), "Invalid date format", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        try {
-            String timeStr = eventTime.getText().toString().trim();
-
-            // Expecting format like "10:30"
-            String[] parts = timeStr.split(":");
-            if (parts.length != 2) {
-                Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
-            int hour = Integer.parseInt(parts[0]);
-            int minute = Integer.parseInt(parts[1]);
-
-            if (hour < 1 || hour > 12) {
-                Toast.makeText(getContext(), "Hour must be between 1 and 12 for AM/PM format.", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
-            if (minute < 0 || minute >= 60) {
-                Toast.makeText(getContext(), "Minutes must be between 00 and 59.", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-
+            Integer.parseInt(eventCapacity.getText().toString().trim());
+            Double.parseDouble(eventPrice.getText().toString().trim());
+            Integer.parseInt(waitlistCapacity.getText().toString().trim());
         } catch (Exception e) {
-            Toast.makeText(getContext(), "Invalid time format. Please use hh:mm format.", Toast.LENGTH_SHORT).show();
-            return false;
+            return toast("Invalid numeric value");
         }
 
         return true;
     }
 
-    /**
-     * Builds a map of event data to be stored in Firestore.
-     *
-     * @return A map containing all event fields and values.
-     */
+    private boolean error(TextInputEditText field) {
+        field.setError("Required");
+        return false;
+    }
+
+    private boolean toast(String msg) {
+        Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        return false;
+    }
+
     private Map<String, Object> buildEventMap() {
         Map<String, Object> event = new HashMap<>();
+
         event.put("title", eventTitle.getText().toString().trim());
         event.put("description", eventDescription.getText().toString().trim());
         event.put("location", eventLocation.getText().toString().trim());
@@ -476,51 +295,32 @@ public class AddEventFragment extends Fragment {
         event.put("registrationClose", registrationClose.getText().toString().trim());
         event.put("updatedAt", new Date());
         event.put("geolocation", switchButton.isChecked());
+
         if (eventId == null) {
-            // only new events start with empty coordinate list
             event.put("coordinate", new ArrayList<>());
         }
 
-
-
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            event.put("creatorId", currentUser.getUid());
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            event.put("creatorId", user.getUid());
         }
+
+        // Categories
+        List<String> categories = new ArrayList<>();
+
+        if (catYoga.isChecked()) categories.add("Yoga and Mindfulness");
+        if (catFitness.isChecked()) categories.add("Strength and Fitness Classes");
+        if (catKidsSports.isChecked()) categories.add("Kids Sports Programs");
+        if (catMartialArts.isChecked()) categories.add("Martial Arts");
+        if (catTennis.isChecked()) categories.add("Tennis and Racquet Sports");
+        if (catAquatics.isChecked()) categories.add("Aquatics and Swimming Lessons");
+        if (catAdultSports.isChecked()) categories.add("Adult Drop-In Sports");
+        if (catWellness.isChecked()) categories.add("Health and Wellness Workshops");
+        if (catCreative.isChecked()) categories.add("Arts, Music and Creative Programs");
+        if (catCamps.isChecked()) categories.add("Special Events and Camps");
+
+        event.put("categories", categories);
 
         return event;
     }
-    /**
-     * Logs a notification to the top-level "notification_logs" collection.
-     *
-     * @param eventId            The event ID related to the notification.
-     * @param organizerId        The UID of the organizer who triggered it.
-     * @param recipientId        The UID of the user receiving the notification.
-     * @param notificationType   Category of the notification (e.g., "lottery_win").
-     * @param title              The notification title.
-     * @param message            The notification body text.
-     */
-    private void logNotification(
-            String eventId,
-            String organizerId,
-            String recipientId,
-            String notificationType,
-            String title,
-            String message
-    ) {
-        Map<String, Object> log = new HashMap<>();
-        log.put("eventId", eventId);
-        log.put("timestamp", new com.google.firebase.Timestamp(new Date()));
-        log.put("organizerId", organizerId);
-        log.put("recipientId", recipientId);
-        log.put("notificationType", notificationType);
-        log.put("notificationTitle", title);
-        log.put("notificationMessage", message);
-
-        db.collection("notification_logs")
-                .add(log)
-                .addOnSuccessListener(docRef -> Log.d("Firestore", "Notification logged: " + docRef.getId()))
-                .addOnFailureListener(e -> Log.e("Firestore", "Log failed", e));
-    }
-
 }

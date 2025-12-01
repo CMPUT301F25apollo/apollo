@@ -39,6 +39,7 @@ public class HomeFragment extends Fragment {
     private String titleKeyword = "";
     private String locationKeyword = "";
     private String dateFilter = "";
+    private ArrayList<String> selectedCategories = new ArrayList<>();
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -67,7 +68,7 @@ public class HomeFragment extends Fragment {
                 .show()
         );
 
-        // Navigate to FilterFragment
+    // Navigate to FilterFragment
         filterButton.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putBoolean("open", showOpen);
@@ -75,11 +76,17 @@ public class HomeFragment extends Fragment {
             args.putString("titleKeyword", titleKeyword);
             args.putString("locationKeyword", locationKeyword);
             args.putString("date", dateFilter);
+
+            // 🔹 ADD THIS LINE
+            args.putStringArrayList("categories", selectedCategories);
+
             NavHostFragment.findNavController(this)
                     .navigate(R.id.action_navigation_home_to_navigation_filter, args);
         });
 
+
         // Listen for filter results
+// Listen for filter results
         getParentFragmentManager().setFragmentResultListener("filters", this, (reqKey, bundle) -> {
             showOpen = bundle.getBoolean("open");
             showClosed = bundle.getBoolean("closed");
@@ -87,6 +94,10 @@ public class HomeFragment extends Fragment {
             titleKeyword = bundle.getString("titleKeyword", "").toLowerCase();
             locationKeyword = bundle.getString("locationKeyword", "").toLowerCase();
             dateFilter = bundle.getString("date", "");
+
+            // NEW: Receive category filters
+            selectedCategories = bundle.getStringArrayList("categories");
+            if (selectedCategories == null) selectedCategories = new ArrayList<>();
 
             filterEvents();
         });
@@ -168,7 +179,11 @@ public class HomeFragment extends Fragment {
 
                         eventsContainer.addView(card);
 
-                        allEvents.add(new Event(title, location, isOpen, isClosed, card, openDate, closeDate));
+                        List<String> categories = (List<String>) document.get("categories");
+                        if (categories == null) categories = new ArrayList<>();
+
+                        allEvents.add(new Event(title, location, isOpen, isClosed, card, openDate, closeDate, categories));
+
                     }
 
                     // Apply current filters
@@ -200,6 +215,26 @@ public class HomeFragment extends Fragment {
 
             if (show && filterDate != null && !e.isAvailableOn(filterDate)) show = false;
 
+            // CATEGORY FILTERING (NEW)
+            if (show && !selectedCategories.isEmpty()) {
+                // If event has no categories in Firestore, skip it
+                List<String> eventCategories = e.getCategories();
+                if (eventCategories == null || eventCategories.isEmpty()) {
+                    show = false;
+                } else {
+                    boolean matchesCategory = false;
+
+                    for (String c : selectedCategories) {
+                        if (eventCategories.contains(c)) {
+                            matchesCategory = true;
+                            break;
+                        }
+                    }
+
+                    if (!matchesCategory) show = false;
+                }
+            }
+
             e.getView().setVisibility(show ? View.VISIBLE : View.GONE);
         }
     }
@@ -212,9 +247,10 @@ public class HomeFragment extends Fragment {
         private final View view;
         private final Date registrationOpen;
         private final Date registrationClose;
+        private final List<String> categories;
 
         public Event(String title, String location, boolean isOpen, boolean isClosed, View view,
-                     Date registrationOpen, Date registrationClose) {
+                     Date registrationOpen, Date registrationClose, List<String> categories) {
             this.title = title;
             this.location = location;
             this.isOpen = isOpen;
@@ -222,6 +258,8 @@ public class HomeFragment extends Fragment {
             this.view = view;
             this.registrationOpen = registrationOpen;
             this.registrationClose = registrationClose;
+            this.categories = categories;
+
         }
 
         public boolean isOpen() { return isOpen; }
@@ -230,11 +268,14 @@ public class HomeFragment extends Fragment {
         public String getTitle() { return title; }
         public String getLocation() { return location; }
 
+
         public boolean isAvailableOn(Date date) {
             if (date == null) return true;
             if (registrationOpen != null && date.before(registrationOpen)) return false;
             if (registrationClose != null && date.after(registrationClose)) return false;
             return true;
         }
+
+        public List<String> getCategories() { return categories; }
     }
 }
