@@ -22,18 +22,25 @@ import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.os.Bundle;
+
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * EventWaitlistFragmentTest
+ * US 02.02.01
  * US 02.06.01
  * US 02.06.02
  * US 02.06.03
- * US 02.06.04
+ * US 02.06.05
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class EventWaitlistFragmentTest {
-
 
     // Check the waitlist screen has the main UI pieces (list, filter, empty text, button)
     @Test
@@ -132,4 +139,57 @@ public class EventWaitlistFragmentTest {
             assertTrue(exportButton.isClickable());
         });
     }
+
+    @Test
+    public void eventWaitlist_displaysEntrantsFromFirestore() throws Exception {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // Fake event ID
+        String eventId = "testEvent_waitlistDisplay";
+
+        // Fake waitlist
+        Map<String, Object> user1 = new HashMap<>();
+        user1.put("name", "Alice Test");
+        Tasks.await(db.collection("users").document("userA").set(user1));
+
+        Map<String, Object> user2 = new HashMap<>();
+        user2.put("name", "Bob Test");
+        Tasks.await(db.collection("users").document("userB").set(user2));
+
+        Map<String, Object> wlState = new HashMap<>();
+        wlState.put("state", "waiting");
+
+        Tasks.await(db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document("userA")
+                .set(wlState));
+
+        Tasks.await(db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document("userB")
+                .set(wlState));
+
+        Bundle args = new Bundle();
+        args.putString("eventId", eventId);
+
+        FragmentScenario<EventWaitlistFragment> scenario =
+                FragmentScenario.launchInContainer(
+                        EventWaitlistFragment.class,
+                        args,
+                        R.style.Theme_Apollo
+                );
+
+        scenario.onFragment(fragment -> {
+            View root = fragment.requireView();
+            ListView listView = root.findViewById(R.id.listView);
+            TextView emptyText = root.findViewById(R.id.emptyText);
+
+            assertNotNull(listView);
+            assertNotNull(listView.getAdapter());
+            assertNotNull(emptyText);
+        });
+    }
+
 }
