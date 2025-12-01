@@ -64,15 +64,6 @@ public class ProfileFragment extends Fragment {
             loadUserProfile();
         }
 
-        // Logout button: signs user out and redirects to login screen
-        binding.logoutButton.setOnClickListener(v -> {
-            FirebaseAuth.getInstance().signOut();
-            Intent intent = new Intent(getActivity(), LoginActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            getActivity().finish();
-        });
-
         // Edit button: navigates to the edit profile fragment
         binding.editProfileButton.setOnClickListener(v -> {
             NavController navController = Navigation.findNavController(v);

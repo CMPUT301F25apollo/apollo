@@ -134,20 +134,6 @@ public class ProfileFragment extends Fragment {
                     NavHostFragment.findNavController(ProfileFragment.this)
                             .navigate(R.id.action_navigation_profile_to_historyEventsFragment)
             );
-
-            Button btnLogout = v.findViewById(R.id.btnLogout);
-            btnLogout.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    FirebaseAuth.getInstance().signOut();
-                    Intent intent = new Intent(getActivity(), LoginActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    if (getActivity() != null) {
-                        getActivity().finish();
-                    }
-                }
-            });
         }
     }
 }
