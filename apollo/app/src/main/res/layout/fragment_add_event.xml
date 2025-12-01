@@ -232,6 +232,82 @@
                     android:textColor="@android:color/white" />
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/categoryContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Event Categories"
+                    android:textStyle="bold"
+                    android:textSize="16sp"/>
+
+                <CheckBox
+                    android:id="@+id/catYoga"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yoga and Mindfulness"/>
+
+                <CheckBox
+                    android:id="@+id/catFitness"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Strength and Fitness Classes"/>
+
+                <CheckBox
+                    android:id="@+id/catKidsSports"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Kids Sports Programs"/>
+
+                <CheckBox
+                    android:id="@+id/catMartialArts"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Martial Arts (Karate/Taekwondo)"/>
+
+                <CheckBox
+                    android:id="@+id/catTennis"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tennis and Racquet Sports"/>
+
+                <CheckBox
+                    android:id="@+id/catAquatics"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Aquatics and Swimming Lessons"/>
+
+                <CheckBox
+                    android:id="@+id/catAdultSports"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Adult Drop-In Sports"/>
+
+                <CheckBox
+                    android:id="@+id/catWellness"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Health and Wellness Workshops"/>
+
+                <CheckBox
+                    android:id="@+id/catCreative"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Arts, Music and Creative Programs"/>
+
+                <CheckBox
+                    android:id="@+id/catCamps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Special Events and Camps"/>
+            </LinearLayout>
+
+
         </LinearLayout>
     </ScrollView>
 

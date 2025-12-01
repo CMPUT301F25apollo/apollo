@@ -15,6 +15,8 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
 
+import java.util.ArrayList;
+
 public class FilterFragment extends Fragment {
 
     private boolean prevOpen = false;
@@ -25,7 +27,7 @@ public class FilterFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_filter, container, false);
 
-        // UI elements
+        // Existing UI elements
         CheckBox cbOpen = view.findViewById(R.id.cbOpen);
         CheckBox cbClosed = view.findViewById(R.id.cbClosed);
         EditText etTitle = view.findViewById(R.id.etTitleKeyword);
@@ -33,13 +35,42 @@ public class FilterFragment extends Fragment {
         EditText etDate = view.findViewById(R.id.etDate);
         Button btnApply = view.findViewById(R.id.btnApply);
 
-        // Restore previous filter state if passed from HomeFragment
+        // New category checkboxes
+        CheckBox catYoga = view.findViewById(R.id.catYoga);
+        CheckBox catFitness = view.findViewById(R.id.catFitness);
+        CheckBox catKidsSports = view.findViewById(R.id.catKidsSports);
+        CheckBox catMartialArts = view.findViewById(R.id.catMartialArts);
+        CheckBox catTennis = view.findViewById(R.id.catTennis);
+        CheckBox catAquatics = view.findViewById(R.id.catAquatics);
+        CheckBox catAdultSports = view.findViewById(R.id.catAdultSports);
+        CheckBox catWellness = view.findViewById(R.id.catWellness);
+        CheckBox catCreative = view.findViewById(R.id.catCreative);
+        CheckBox catCamps = view.findViewById(R.id.catCamps);
+
+        // Restore previous filter state
         if (getArguments() != null) {
             prevOpen = getArguments().getBoolean("open", true);
             prevClosed = getArguments().getBoolean("closed", false);
             etTitle.setText(getArguments().getString("titleKeyword", ""));
             etLocation.setText(getArguments().getString("locationKeyword", ""));
             etDate.setText(getArguments().getString("date", ""));
+
+            // Restore categories
+            ArrayList<String> prevCategories =
+                    getArguments().getStringArrayList("categories");
+
+            if (prevCategories != null) {
+                catYoga.setChecked(prevCategories.contains("Yoga and Mindfulness"));
+                catFitness.setChecked(prevCategories.contains("Strength and Fitness Classes"));
+                catKidsSports.setChecked(prevCategories.contains("Kids Sports Programs"));
+                catMartialArts.setChecked(prevCategories.contains("Martial Arts"));
+                catTennis.setChecked(prevCategories.contains("Tennis and Racquet Sports"));
+                catAquatics.setChecked(prevCategories.contains("Aquatics and Swimming Lessons"));
+                catAdultSports.setChecked(prevCategories.contains("Adult Drop-In Sports"));
+                catWellness.setChecked(prevCategories.contains("Health and Wellness Workshops"));
+                catCreative.setChecked(prevCategories.contains("Arts, Music and Creative Programs"));
+                catCamps.setChecked(prevCategories.contains("Special Events and Camps"));
+            }
         }
 
         cbOpen.setChecked(prevOpen);
@@ -47,8 +78,23 @@ public class FilterFragment extends Fragment {
 
         // Apply button click
         btnApply.setOnClickListener(v -> {
+
             prevOpen = cbOpen.isChecked();
             prevClosed = cbClosed.isChecked();
+
+            // Collect selected categories
+            ArrayList<String> selectedCategories = new ArrayList<>();
+
+            if (catYoga.isChecked()) selectedCategories.add("Yoga and Mindfulness");
+            if (catFitness.isChecked()) selectedCategories.add("Strength and Fitness Classes");
+            if (catKidsSports.isChecked()) selectedCategories.add("Kids Sports Programs");
+            if (catMartialArts.isChecked()) selectedCategories.add("Martial Arts");
+            if (catTennis.isChecked()) selectedCategories.add("Tennis & Racquet Sports");
+            if (catAquatics.isChecked()) selectedCategories.add("Aquatics and Swimming Lessons");
+            if (catAdultSports.isChecked()) selectedCategories.add("Adult Drop-In Sports");
+            if (catWellness.isChecked()) selectedCategories.add("Health and Wellness Workshops");
+            if (catCreative.isChecked()) selectedCategories.add("Arts, Music and Creative Programs");
+            if (catCamps.isChecked()) selectedCategories.add("Special Events and Camps");
 
             Bundle result = new Bundle();
             result.putBoolean("open", prevOpen);
@@ -56,6 +102,9 @@ public class FilterFragment extends Fragment {
             result.putString("titleKeyword", etTitle.getText().toString().trim());
             result.putString("locationKeyword", etLocation.getText().toString().trim());
             result.putString("date", etDate.getText().toString().trim());
+
+            // Add categories to result
+            result.putStringArrayList("categories", selectedCategories);
 
             // Send results back to HomeFragment
             getParentFragmentManager().setFragmentResult("filters", result);
