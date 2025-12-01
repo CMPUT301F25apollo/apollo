@@ -59,7 +59,7 @@ public class NotificationsFeatureTest {
     @Test
     public void notificationsAdapter_canHoldWinAndLoseNotifications() {
         NotificationsAdapter adapter =
-                new NotificationsAdapter((notification, position) -> {});
+                new NotificationsAdapter(null);
 
         List<NotificationsViewModel> items = new ArrayList<>();
 

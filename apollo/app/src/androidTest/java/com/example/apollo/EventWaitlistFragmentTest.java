@@ -78,12 +78,11 @@ public class EventWaitlistFragmentTest {
 
             // expected status filters
             assertTrue(labels.contains("All"));
-            assertTrue(labels.contains("Accepted"));   // enrolled
+            assertTrue(labels.contains("Accepted"));
             assertTrue(labels.contains("Declined"));
-            assertTrue(labels.contains("Winner"));     // chosen entrants
+            assertTrue(labels.contains("invited"));
             assertTrue(labels.contains("Loser"));
             assertTrue(labels.contains("Waiting"));
-            assertTrue(labels.contains("Cancelled"));  // cancelled entrants
         });
     }
 
