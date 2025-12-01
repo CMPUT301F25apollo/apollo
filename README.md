@@ -1,4 +1,1 @@
 # apollo
-
-ccid: 
-essak
