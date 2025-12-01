@@ -28,7 +28,7 @@ public class NotificationsViewModel {
     public Timestamp createdAt;
     public String status; // "accepted", "declined", or null
 
-    /**
+    /**n
      * Converts a Firestore document into a NotificationsViewModel object.
      *
      * @param d The Firestore DocumentSnapshot containing notification data.

@@ -220,6 +220,10 @@ public class SettingsFragment extends Fragment {
     }
 
     private void updateNotificationSetting(boolean enabled) {
+        if (currentUser == null) {
+            Log.w("SettingsFragment", "updateNotificationSetting: no current user, skipping write");
+            return;
+        }
         DocumentReference userRef = db.collection("users").document(currentUser.getUid());
 
         userRef.update("notificationsEnabled", enabled)
