@@ -78,7 +78,7 @@ public class NotificationsFragment extends Fragment {
         // add user to accepted_users
         DocumentReference acceptedRef = db.collection("events")
                 .document(eventId)
-                .collection("accepted_users")
+                .collection("registration")
                 .document(uid);
 
         HashMap<String, Object> acceptedData = new HashMap<>();
@@ -105,7 +105,7 @@ public class NotificationsFragment extends Fragment {
 
         DocumentReference declinedRef = db.collection("events")
                 .document(eventId)
-                .collection("declined_users")
+                .collection("declined")
                 .document(uid);
 
         HashMap<String, Object> declinedData = new HashMap<>();
