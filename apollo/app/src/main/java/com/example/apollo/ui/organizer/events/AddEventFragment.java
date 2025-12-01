@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Switch;
@@ -39,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -76,6 +78,8 @@ public class AddEventFragment extends Fragment {
     private String eventId = null; // indicates edit mode
     private FirebaseAuth mAuth;
     private Switch switchButton;
+    private CheckBox catYoga, catFitness, catKidsSports, catMartialArts, catTennis, catAquatics, catAdultSports, catWellness, catCreative, catCamps;
+
 
 
     /**
@@ -117,8 +121,16 @@ public class AddEventFragment extends Fragment {
         buttonRemoveImage = view.findViewById(R.id.buttonRemoveImage);
         eventImagePreview = view.findViewById(R.id.eventImagePreview);
         switchButton = view.findViewById(R.id.switchButton);
-
-
+        catYoga = view.findViewById(R.id.catYoga);
+        catFitness = view.findViewById(R.id.catFitness);
+        catKidsSports = view.findViewById(R.id.catKidsSports);
+        catMartialArts = view.findViewById(R.id.catMartialArts);
+        catTennis = view.findViewById(R.id.catTennis);
+        catAquatics = view.findViewById(R.id.catAquatics);
+        catAdultSports = view.findViewById(R.id.catAdultSports);
+        catWellness = view.findViewById(R.id.catWellness);
+        catCreative = view.findViewById(R.id.catCreative);
+        catCamps = view.findViewById(R.id.catCamps);
 
 
         // Check if editing an existing event
@@ -250,6 +262,20 @@ public class AddEventFragment extends Fragment {
                         getParentFragmentManager().popBackStack();
                     });
         }
+        List<String> categories = new ArrayList<>();
+
+        if (catYoga.isChecked()) categories.add("Yoga & Mindfulness");
+        if (catFitness.isChecked()) categories.add("Strength & Fitness Classes");
+        if (catKidsSports.isChecked()) categories.add("Kids Sports Programs");
+        if (catMartialArts.isChecked()) categories.add("Martial Arts");
+        if (catTennis.isChecked()) categories.add("Tennis & Racquet Sports");
+        if (catAquatics.isChecked()) categories.add("Aquatics & Swimming Lessons");
+        if (catAdultSports.isChecked()) categories.add("Adult Drop-In Sports");
+        if (catWellness.isChecked()) categories.add("Health & Wellness Workshops");
+        if (catCreative.isChecked()) categories.add("Arts, Music & Creative Programs");
+        if (catCamps.isChecked()) categories.add("Special Events & Camps");
+
+        event.put("categories", categories);
     }
 
 
@@ -301,6 +327,22 @@ public class AddEventFragment extends Fragment {
                     Glide.with(requireContext())
                             .load(existingImageUrl)
                             .into(eventImagePreview);
+                }
+                if (document.contains("categories")) {
+                    List<String> catList = (List<String>) document.get("categories");
+
+                    if (catList != null) {
+                        catYoga.setChecked(catList.contains("Yoga & Mindfulness"));
+                        catFitness.setChecked(catList.contains("Strength & Fitness Classes"));
+                        catKidsSports.setChecked(catList.contains("Kids Sports Programs"));
+                        catMartialArts.setChecked(catList.contains("Martial Arts"));
+                        catTennis.setChecked(catList.contains("Tennis & Racquet Sports"));
+                        catAquatics.setChecked(catList.contains("Aquatics & Swimming Lessons"));
+                        catAdultSports.setChecked(catList.contains("Adult Drop-In Sports"));
+                        catWellness.setChecked(catList.contains("Health & Wellness Workshops"));
+                        catCreative.setChecked(catList.contains("Arts, Music & Creative Programs"));
+                        catCamps.setChecked(catList.contains("Special Events & Camps"));
+                    }
                 }
             }
         }).addOnFailureListener(e -> Log.e("Firestore", "Error loading event for edit", e));
