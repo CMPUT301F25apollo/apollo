@@ -91,7 +91,7 @@ public class EventWaitlistFragment extends Fragment {
         listView.setEmptyView(emptyTextView);
 
         // Setup for Spinner
-        String[] filterOptions = {"All", "Accepted", "Declined", "Winner", "Loser", "Waiting", "Cancelled"};
+        String[] filterOptions = {"All", "Accepted", "Declined", "invited", "Loser", "Waiting"};
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         filterSpinner.setAdapter(spinnerAdapter);
@@ -131,7 +131,7 @@ public class EventWaitlistFragment extends Fragment {
 
         return view;
     }
-    
+
     private void showCancelInvitationDialog(Entrant entrant) {
         new AlertDialog.Builder(getContext())
                 .setTitle("Cancel Invitation")
@@ -140,13 +140,13 @@ public class EventWaitlistFragment extends Fragment {
                 .setNegativeButton("No", null)
                 .show();
     }
-    
+
     private void cancelInvitation(Entrant entrant) {
         if (eventId == null || entrant == null || entrant.getId() == null) {
             Toast.makeText(getContext(), "Error: Cannot cancel invitation.", Toast.LENGTH_SHORT).show();
             return;
         }
-    
+
         db.collection("events").document(eventId)
                 .collection("waitlist").document(entrant.getId())
                 .update("state", "Cancelled")
