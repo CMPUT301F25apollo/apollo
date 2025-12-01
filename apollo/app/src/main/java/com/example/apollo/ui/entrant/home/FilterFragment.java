@@ -1,5 +1,3 @@
-
-
 package com.example.apollo.ui.entrant.home;
 
 import android.os.Bundle;
@@ -8,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,70 +15,52 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.apollo.R;
 
-/**
- * FilterFragment
- * This fragment lets users choose which types of events to display (Open or Closed)
- * on the Home screen. It temporarily stores the user’s selections and returns them
- * to HomeFragment using the Fragment Result API when “Apply” is pressed.
- *
- * Current issues:
- * - Support more filter options
- */
-
 public class FilterFragment extends Fragment {
 
-    // Stores the last selected state for each filter checkbox
     private boolean prevOpen = false;
     private boolean prevClosed = false;
 
-    /**
-     * Inflates the layout for the filter screen, restores any previously
-     * selected filter states (Open/Closed), and sets up the Apply button
-     * to send selected filters back to HomeFragment.
-     *
-     * @param inflater  Used to inflate the fragment's layout
-     * @param container The parent view that the fragment's UI should be attached to
-     * @param savedInstanceState Saved state data, if available (unused here)
-     * @return The root View of the inflated layout for this fragment
-     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_filter, container, false);
 
-        // Initialize UI elements
+        // UI elements
         CheckBox cbOpen = view.findViewById(R.id.cbOpen);
         CheckBox cbClosed = view.findViewById(R.id.cbClosed);
+        EditText etTitle = view.findViewById(R.id.etTitleKeyword);
+        EditText etLocation = view.findViewById(R.id.etLocationKeyword);
+        EditText etDate = view.findViewById(R.id.etDate);
         Button btnApply = view.findViewById(R.id.btnApply);
 
-        // Restore last filter state if passed from HomeFragment
+        // Restore previous filter state if passed from HomeFragment
         if (getArguments() != null) {
             prevOpen = getArguments().getBoolean("open", true);
             prevClosed = getArguments().getBoolean("closed", false);
+            etTitle.setText(getArguments().getString("titleKeyword", ""));
+            etLocation.setText(getArguments().getString("locationKeyword", ""));
+            etDate.setText(getArguments().getString("date", ""));
         }
 
-        // Set initial checkbox states
         cbOpen.setChecked(prevOpen);
         cbClosed.setChecked(prevClosed);
 
-
-        //when apply is clicked, capture the current checkbox selections
-        //package them in bundle & send back to HomeFragment using FragmentResult API
-        // navigate back to Home screen
+        // Apply button click
         btnApply.setOnClickListener(v -> {
             prevOpen = cbOpen.isChecked();
             prevClosed = cbClosed.isChecked();
 
-            // Create result bundle with current filter settings
             Bundle result = new Bundle();
             result.putBoolean("open", prevOpen);
             result.putBoolean("closed", prevClosed);
+            result.putString("titleKeyword", etTitle.getText().toString().trim());
+            result.putString("locationKeyword", etLocation.getText().toString().trim());
+            result.putString("date", etDate.getText().toString().trim());
 
-            // Send the result back to HomeFragment
+            // Send results back to HomeFragment
             getParentFragmentManager().setFragmentResult("filters", result);
 
-            // Navigate back to HomeFragment
+            // Navigate back
             NavHostFragment.findNavController(this).popBackStack();
         });
 
