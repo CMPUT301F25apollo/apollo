@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.apollo.R;
 import com.example.apollo.models.Event;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -63,24 +64,72 @@ public class HistoryEventsFragment extends Fragment {
     }
 
     private void loadHistoryEvents() {
-        db.collection("events")
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    events.clear();
+        String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-                    for (DocumentSnapshot doc : snapshot) {
+        // Step 1: collect all event IDs where user interacted
+        List<String> interactedEventIds = new ArrayList<>();
+
+        // Load registrations
+        db.collection("registrations").document(uid).get()
+                .addOnSuccessListener(regSnap -> {
+
+                    if (regSnap.exists()) {
+                        interactedEventIds.addAll(regSnap.getData().keySet());
+                    }
+
+                    // Load invites next
+                    db.collection("invites").document(uid).get()
+                            .addOnSuccessListener(invSnap -> {
+
+                                if (invSnap.exists()) {
+                                    interactedEventIds.addAll(invSnap.getData().keySet());
+                                }
+
+                                // Load waitlist next
+                                db.collection("waitlist").document(uid).get()
+                                        .addOnSuccessListener(waitSnap -> {
+
+                                            if (waitSnap.exists()) {
+                                                interactedEventIds.addAll(waitSnap.getData().keySet());
+                                            }
+
+                                            // Remove duplicates
+                                            List<String> uniqueIds = new ArrayList<>(
+                                                    new java.util.HashSet<>(interactedEventIds)
+                                            );
+
+                                            if (uniqueIds.isEmpty()) {
+                                                events.clear();
+                                                adapter.notifyDataSetChanged();
+                                                return;
+                                            }
+
+                                            // Now fetch all events and filter by past
+                                            fetchPastInteractedEvents(uniqueIds);
+                                        });
+                            });
+                });
+    }
+
+    private void fetchPastInteractedEvents(List<String> eventIds) {
+        events.clear();
+
+        for (String eventId : eventIds) {
+            db.collection("events").document(eventId).get()
+                    .addOnSuccessListener(doc -> {
+                        if (!doc.exists()) return;
+
                         Event event = doc.toObject(Event.class);
-                        if (event == null || event.getDate() == null) continue;
+                        if (event == null || event.getDate() == null) return;
 
                         event.setId(doc.getId());
 
                         if (isPast(event.getDate())) {
                             events.add(event);
+                            adapter.notifyDataSetChanged();
                         }
-                    }
-
-                    adapter.notifyDataSetChanged();
-                });
+                    });
+        }
     }
 
     private boolean isPast(String dateStr) {
