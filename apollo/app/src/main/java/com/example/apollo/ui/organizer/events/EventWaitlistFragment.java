@@ -66,7 +66,7 @@ public class EventWaitlistFragment extends Fragment {
         listView.setEmptyView(emptyTextView);
 
         // Setup for Spinner
-        String[] filterOptions = {"All", "Accepted", "Declined", "Winner", "Loser", "Waiting"};
+        String[] filterOptions = {"All", "Accepted", "Declined", "Loser", "Waiting"};
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         filterSpinner.setAdapter(spinnerAdapter);
