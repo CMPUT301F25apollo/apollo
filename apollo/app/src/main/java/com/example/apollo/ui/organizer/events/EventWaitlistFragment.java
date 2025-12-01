@@ -7,9 +7,11 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +46,8 @@ public class EventWaitlistFragment extends Fragment {
 
     private FirebaseFirestore db;
     private String eventId;
+    private final List<String> allEntrants = new ArrayList<>();
+    private Spinner filterSpinner;
 
     @Nullable
     @Override
@@ -55,10 +59,29 @@ public class EventWaitlistFragment extends Fragment {
 
         listView = view.findViewById(R.id.listView);
         emptyTextView = view.findViewById(R.id.emptyText);
+        filterSpinner = view.findViewById(R.id.filterSpinner);
 
         adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, entrantsList);
         listView.setAdapter(adapter);
         listView.setEmptyView(emptyTextView);
+
+        // Setup for Spinner
+        String[] filterOptions = {"All", "Accepted", "Declined", "Winner", "Loser", "Waiting"};
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, filterOptions);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        filterSpinner.setAdapter(spinnerAdapter);
+
+        filterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                applyFilter();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // Do nothing
+            }
+        });
 
         db = FirebaseFirestore.getInstance();
 
@@ -112,7 +135,8 @@ public class EventWaitlistFragment extends Fragment {
 
             if (entrantStates.isEmpty()) {
                 emptyTextView.setText("No one has joined the event");
-                adapter.notifyDataSetChanged(); // Ensure list is cleared
+                allEntrants.clear();
+                applyFilter();
                 return;
             }
 
@@ -140,13 +164,14 @@ public class EventWaitlistFragment extends Fragment {
 
                 Collections.sort(newEntrantsList);
 
-                entrantsList.clear();
-                entrantsList.addAll(newEntrantsList);
-                adapter.notifyDataSetChanged();
+                allEntrants.clear();
+                allEntrants.addAll(newEntrantsList);
+                applyFilter(); // This will handle updating entrantsList and the adapter
 
-                if (entrantsList.isEmpty()) {
+                if (allEntrants.isEmpty()) {
                     emptyTextView.setText("No entrants found");
                 }
+
             }).addOnFailureListener(e -> {
                 emptyTextView.setText("Failed to load entrant details");
                 Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -158,6 +183,39 @@ public class EventWaitlistFragment extends Fragment {
         });
     }
 
+    private void applyFilter() {
+        if (filterSpinner == null || allEntrants == null) {
+            return;
+        }
+
+        String selectedFilter = filterSpinner.getSelectedItem().toString();
+        List<String> filteredList = new ArrayList<>();
+
+        if (selectedFilter.equals("All")) {
+            filteredList.addAll(allEntrants);
+        } else {
+            for (String entry : allEntrants) {
+                // The status is after " – "
+                if (entry.endsWith("– " + selectedFilter)) {
+                    filteredList.add(entry);
+                }
+            }
+        }
+
+        entrantsList.clear();
+        entrantsList.addAll(filteredList);
+        adapter.notifyDataSetChanged();
+
+        if (entrantsList.isEmpty() && !allEntrants.isEmpty()) {
+            emptyTextView.setText("No entrants match the filter '" + selectedFilter + "'");
+            emptyTextView.setVisibility(View.VISIBLE);
+        } else if (allEntrants.isEmpty()) {
+            emptyTextView.setText("No one has joined the event");
+            emptyTextView.setVisibility(View.VISIBLE);
+        } else {
+            emptyTextView.setVisibility(View.GONE);
+        }
+    }
     private void exportWaitlistToCsv() {
         if (entrantsList.isEmpty()) {
             Toast.makeText(getContext(), "No data to export", Toast.LENGTH_SHORT).show();
@@ -172,7 +230,8 @@ public class EventWaitlistFragment extends Fragment {
             String name = parts[0];
             String status = (parts.length > 1) ? parts[1] : "unknown";
 
-            csvBuilder.append(name).append(",").append(status).append(" ");
+            csvBuilder.append(" ");
+            csvBuilder.append(name).append(",").append(status);
         }
 
         try {
@@ -224,6 +283,8 @@ public class EventWaitlistFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        loadWaitlistEntrants();
+        if (eventId != null) {
+            loadWaitlistEntrants();
+        }
     }
 }
