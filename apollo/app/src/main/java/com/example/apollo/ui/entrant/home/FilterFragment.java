@@ -1,3 +1,11 @@
+/**
+ * FilterFragment.java
+ *
+ * This fragment lets entrants apply filters to the event list.
+ * Users can filter by open/closed registration, title keyword, location,
+ * date, and a set of event categories. The chosen filters are returned to
+ * the calling fragment via FragmentResult.
+ */
 package com.example.apollo.ui.entrant.home;
 
 import android.os.Bundle;
@@ -17,17 +25,32 @@ import com.example.apollo.R;
 
 import java.util.ArrayList;
 
+/**
+ * Fragment that displays filter options for the home event list.
+ * It restores any previously selected filters from arguments and
+ * sends the updated filter values back when the user taps Apply.
+ */
 public class FilterFragment extends Fragment {
 
     private boolean prevOpen = false;
     private boolean prevClosed = false;
 
+    /**
+     * Inflates the filter layout, restores existing filter values from
+     * arguments (if any), and sets up the Apply button to return the
+     * selected filters back to the parent fragment.
+     *
+     * @param inflater  LayoutInflater used to inflate the UI.
+     * @param container Parent view group for the fragment (may be null).
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_filter, container, false);
 
-        // Existing UI elements
+        // Existing UI
         CheckBox cbOpen = view.findViewById(R.id.cbOpen);
         CheckBox cbClosed = view.findViewById(R.id.cbClosed);
         EditText etTitle = view.findViewById(R.id.etTitleKeyword);
@@ -35,7 +58,7 @@ public class FilterFragment extends Fragment {
         EditText etDate = view.findViewById(R.id.etDate);
         Button btnApply = view.findViewById(R.id.btnApply);
 
-        // New category checkboxes
+        // checkboxes
         CheckBox catYoga = view.findViewById(R.id.catYoga);
         CheckBox catFitness = view.findViewById(R.id.catFitness);
         CheckBox catKidsSports = view.findViewById(R.id.catKidsSports);

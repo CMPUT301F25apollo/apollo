@@ -40,6 +40,19 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * QrScannerFragment.java
+ *
+ * This fragment uses CameraX and ML Kit to scan QR codes.
+ * When a valid QR code is detected, it extracts the eventId and prompts
+ * the user to open the associated event details screen.
+ *
+ * Responsibilities:
+ * - Handle camera permission and camera lifecycle
+ * - Stream frames into ML Kit's barcode scanner
+ * - Prevent duplicate scans with a simple hasScanned flag
+ * - Navigate to EventDetailsFragment when user confirms
+ */
 public class QrScannerFragment extends Fragment {
 
     private static final int REQUEST_CAMERA_PERMISSION = 1001;
@@ -51,6 +64,9 @@ public class QrScannerFragment extends Fragment {
     private BarcodeScanner barcodeScanner;
     private boolean hasScanned = false;
 
+    /**
+     * Inflates the QR scanner layout.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container,
@@ -58,6 +74,11 @@ public class QrScannerFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_qr_scanner, container, false);
     }
 
+    /**
+     * Initializes camera preview, overlay text, barcode scanner, and
+     * requests camera permission if needed. Once permission is granted,
+     * the camera pipeline is started.
+     */
     @Override
     public void onViewCreated(@NonNull View view,
                               @Nullable Bundle savedInstanceState) {
@@ -65,7 +86,6 @@ public class QrScannerFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         previewView = view.findViewById(R.id.previewView);
-
         overlayText = view.findViewById(R.id.scanOverlayText);
 
         cameraExecutor = Executors.newSingleThreadExecutor();
@@ -76,7 +96,6 @@ public class QrScannerFragment extends Fragment {
                         .build();
 
         barcodeScanner = BarcodeScanning.getClient(options);
-
 
         // Permission
         if (ContextCompat.checkSelfPermission(
@@ -94,6 +113,11 @@ public class QrScannerFragment extends Fragment {
         }
     }
 
+    /**
+     * Sets up the CameraX pipeline: preview + image analysis.
+     * The analyzer forwards frames to {@link #analyzeImage(ImageProxy)}.
+     * This method resets the hasScanned flag so scanning can restart.
+     */
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void startCamera() {
 
@@ -128,6 +152,14 @@ public class QrScannerFragment extends Fragment {
         }, ContextCompat.getMainExecutor(requireContext()));
     }
 
+    /**
+     * Analyzer callback for CameraX image frames. Converts the frame into an
+     * ML Kit {@link InputImage}, runs barcode detection, and when a QR code
+     * is detected for the first time, shows a dialog asking whether to open
+     * the corresponding event.
+     *
+     * @param imageProxy The camera frame being analyzed.
+     */
     @ExperimentalGetImage
     private void analyzeImage(@NonNull ImageProxy imageProxy) {
 
@@ -166,6 +198,13 @@ public class QrScannerFragment extends Fragment {
                 .addOnCompleteListener(task -> imageProxy.close());
     }
 
+    /**
+     * Shows a confirmation dialog when a QR code is detected.
+     * If the user taps "Open", navigates to the event details screen
+     * using the scanned eventId. If the user cancels, scanning restarts.
+     *
+     * @param eventId The event ID decoded from the QR code.
+     */
     private void showResultDialog(String eventId) {
 
         if (!isAdded()) return;
@@ -183,12 +222,16 @@ public class QrScannerFragment extends Fragment {
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> {
                     hasScanned = false;
-                    startCamera();   // 🔥 restart scanning
+                    startCamera();
                 })
                 .setCancelable(false)
                 .show();
     }
 
+    /**
+     * Cleans up the camera executor and closes the barcode scanner
+     * when the view is destroyed to avoid leaks.
+     */
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -196,6 +239,10 @@ public class QrScannerFragment extends Fragment {
         barcodeScanner.close();
     }
 
+    /**
+     * Handles the result of the camera permission request. If granted,
+     * the camera is started; otherwise, the fragment navigates back.
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] perms,

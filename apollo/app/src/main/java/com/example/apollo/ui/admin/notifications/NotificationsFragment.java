@@ -1,3 +1,13 @@
+/**
+ * NotificationsFragment.java
+ *
+ * This fragment lets admin users view a log of sent notifications.
+ * It loads recent notification log entries from Firestore and displays them
+ * as cards with title, message, event, sender, recipient, and timestamp.
+ *
+ * Extra details like event name and user names are resolved by additional
+ * Firestore lookups after the initial log data is loaded.
+ */
 package com.example.apollo.ui.admin.notifications;
 
 import android.os.Bundle;
@@ -17,11 +27,25 @@ import com.example.apollo.R;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+/**
+ * Fragment that displays a list of notification logs for admins.
+ * Each log card shows the notification content along with event,
+ * sender, recipient, and time information.
+ */
 public class NotificationsFragment extends Fragment {
 
     private LinearLayout eventsContainer;
     private FirebaseFirestore db;
 
+    /**
+     * Inflates the notification logs layout, initializes the container,
+     * and starts loading log entries from Firestore.
+     *
+     * @param inflater  LayoutInflater used to inflate the UI.
+     * @param container Parent view group (may be null).
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -38,12 +62,16 @@ public class NotificationsFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Loads recent notification logs from Firestore and creates a card
+     * for each log entry. If no logs are found, an empty message is shown.
+     */
     private void loadLogs() {
         eventsContainer.removeAllViews();
 
         db.collection("notification_logs")
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(1000)   // optional
+                .limit(1000)
                 .get()
                 .addOnSuccessListener(snap -> {
                     for (QueryDocumentSnapshot doc : snap) {
@@ -56,6 +84,14 @@ public class NotificationsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Creates and populates a single log card view based on a Firestore document.
+     * The card shows the notification title, message, and metadata such as event,
+     * sender, recipient, and timestamp. Some fields are filled in asynchronously
+     * with extra Firestore requests.
+     *
+     * @param doc The Firestore document representing a notification log entry.
+     */
     private void addLogCard(QueryDocumentSnapshot doc) {
         LayoutInflater inflater = LayoutInflater.from(getContext());
         View card = inflater.inflate(R.layout.item_log_card, eventsContainer, false);
@@ -75,7 +111,6 @@ public class NotificationsFragment extends Fragment {
                 ? doc.getTimestamp("timestamp").toDate().toString()
                 : "Unknown time";
 
-        // ------- INITIAL META TEXT WITH PLACEHOLDERS -------
         meta.setText(
                 "Event: loading..." +
                         "\nType: " + type +
@@ -84,7 +119,7 @@ public class NotificationsFragment extends Fragment {
                         "\nSent: " + ts
         );
 
-        // ------- FETCH EVENT TITLE -------
+        // Fetch event title
         FirebaseFirestore.getInstance()
                 .collection("events")
                 .document(eventId)
@@ -96,7 +131,7 @@ public class NotificationsFragment extends Fragment {
                     }
                 });
 
-        // ------- FETCH ORGANIZER NAME -------
+        // Fetch organizer name
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .document(organizerId)
@@ -109,7 +144,7 @@ public class NotificationsFragment extends Fragment {
                     }
                 });
 
-        // ------- FETCH RECIPIENT NAME -------
+        // Fetch recipient name
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .document(recipientId)
@@ -124,13 +159,24 @@ public class NotificationsFragment extends Fragment {
 
         eventsContainer.addView(card);
     }
+
+    /**
+     * Replaces one of the placeholder lines in the meta text
+     * (e.g., "Event: loading...") with the resolved value.
+     *
+     * @param meta  The TextView containing the meta information.
+     * @param key   The label whose value should be updated ("Event", "From", or "To").
+     * @param value The text to insert for the given label.
+     */
     private void updateMeta(TextView meta, String key, String value) {
         String current = meta.getText().toString();
         String updated = current.replace(key + ": loading...", key + ": " + value);
         meta.setText(updated);
     }
 
-
+    /**
+     * Adds a simple message to the container when no log entries are found.
+     */
     private void addEmptyMessage() {
         TextView msg = new TextView(getContext());
         msg.setText("No logs found.");

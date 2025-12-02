@@ -14,20 +14,55 @@ import com.example.apollo.R;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * NotificationsAdapter.java
+ *
+ * RecyclerView adapter for displaying entrant notifications.
+ * It shows the notification title/message and, for lottery win
+ * notifications, displays Accept / Decline buttons and forwards
+ * actions to a callback interface.
+ */
 public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdapter.VH> {
 
+    /**
+     * Callback interface used to notify the host when a user
+     * accepts or declines a notification (e.g., lottery win).
+     */
     public interface OnNotificationAction {
+        /**
+         * Called when the user taps "Accept" on a notification.
+         *
+         * @param n        The notification item.
+         * @param position The adapter position of the item.
+         */
         void onAccept(NotificationsViewModel n, int position);
+
+        /**
+         * Called when the user taps "Decline" on a notification.
+         *
+         * @param n        The notification item.
+         * @param position The adapter position of the item.
+         */
         void onDecline(NotificationsViewModel n, int position);
     }
 
     private final List<NotificationsViewModel> data = new ArrayList<>();
     private final OnNotificationAction listener;
 
+    /**
+     * Creates a new adapter with the given action listener.
+     *
+     * @param listener Callback for Accept / Decline actions.
+     */
     public NotificationsAdapter(OnNotificationAction listener) {
         this.listener = listener;
     }
 
+    /**
+     * Replaces the current data set with a new list of notifications.
+     *
+     * @param items New notifications to display.
+     */
     public void setData(List<NotificationsViewModel> items) {
         data.clear();
         if (items != null) data.addAll(items);
@@ -74,6 +109,10 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         return data.size();
     }
 
+    /**
+     * ViewHolder that binds a single notification item view:
+     * title, message, and optional Accept / Decline buttons.
+     */
     static class VH extends RecyclerView.ViewHolder {
         TextView title, message;
         Button acceptBtn, declineBtn;

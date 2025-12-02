@@ -39,6 +39,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * AddEventFragment.java
+ *
+ * Organizer-facing screen used to create a new event or edit an existing one.
+ * Allows entry of basic details (title, description, dates, capacity, price),
+ * optional poster image upload, category selection, and a geolocation toggle.
+ *
+ * Behavior:
+ * - If an eventId is passed in arguments → load event data and switch to "Update" mode.
+ * - Otherwise → create a new event with a generated QR id and default flags.
+ */
 public class AddEventFragment extends Fragment {
 
     private static final int IMAGE_PICK_REQUEST = 1001;
@@ -64,6 +75,12 @@ public class AddEventFragment extends Fragment {
     private CheckBox catYoga, catFitness, catKidsSports, catMartialArts, catTennis,
             catAquatics, catAdultSports, catWellness, catCreative, catCamps;
 
+    /**
+     * Inflates the add/edit event layout, initializes Firebase references and UI elements,
+     * and wires up button actions (AM/PM, image selection, save/update).
+     *
+     * If an "eventId" argument is present, the fragment loads existing event data for editing.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -140,6 +157,12 @@ public class AddEventFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Updates the AM/PM state and toggles the background color
+     * of the two time-selection buttons.
+     *
+     * @param selection "AM" or "PM"
+     */
     private void selectAMPM(String selection) {
         ampm = selection;
 
@@ -152,12 +175,18 @@ public class AddEventFragment extends Fragment {
         }
     }
 
+    /**
+     * Launches an implicit intent to pick an image from the device gallery.
+     */
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         startActivityForResult(Intent.createChooser(intent, "Select Image"), IMAGE_PICK_REQUEST);
     }
 
+    /**
+     * Handles the result of the image picker and updates the preview.
+     */
     @Override
     public void onActivityResult(int req, int res, @Nullable Intent data) {
         super.onActivityResult(req, res, data);
@@ -167,6 +196,10 @@ public class AddEventFragment extends Fragment {
         }
     }
 
+    /**
+     * Uploads the selected image to Firebase Storage, then calls {@link #saveEvent(String)}
+     * with the resulting download URL.
+     */
     private void uploadImageAndSaveEvent() {
         if (selectedImageUri == null) return;
 
@@ -180,6 +213,12 @@ public class AddEventFragment extends Fragment {
                         Toast.makeText(getContext(), "Image upload failed", Toast.LENGTH_SHORT).show());
     }
 
+    /**
+     * Saves a new event or updates an existing one in Firestore.
+     * If imageUrl is not null, it is stored as the event poster URL.
+     *
+     * @param imageUrl Download URL of the event poster (may be null).
+     */
     private void saveEvent(String imageUrl) {
         Map<String, Object> event = buildEventMap();
 
@@ -206,6 +245,12 @@ public class AddEventFragment extends Fragment {
         }
     }
 
+    /**
+     * Loads existing event data from Firestore and populates
+     * the form fields and category checkboxes for editing.
+     *
+     * @param id ID of the event document to edit.
+     */
     private void loadEventDataForEditing(String id) {
         db.collection("events").document(id)
                 .get()
@@ -251,6 +296,12 @@ public class AddEventFragment extends Fragment {
                 });
     }
 
+    /**
+     * Basic form validation: checks required fields and numeric inputs
+     * (capacity, price, waitlist). Shows inline errors or toasts when invalid.
+     *
+     * @return true if all inputs look valid; false otherwise.
+     */
     private boolean validateInputs() {
         if (eventTitle.getText().toString().trim().isEmpty()) return error(eventTitle);
         if (eventDescription.getText().toString().trim().isEmpty()) return error(eventDescription);
@@ -270,16 +321,30 @@ public class AddEventFragment extends Fragment {
         return true;
     }
 
+    /**
+     * Marks a TextInputEditText as required and returns false for use in validation chains.
+     */
     private boolean error(TextInputEditText field) {
         field.setError("Required");
         return false;
     }
 
+    /**
+     * Convenience helper to show a short Toast and return false
+     * so it can be used directly in validation branches.
+     */
     private boolean toast(String msg) {
         Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
         return false;
     }
 
+    /**
+     * Builds the Firestore event document map from the current form state,
+     * including title, description, registration data, capacity, price,
+     * geolocation flag, and selected categories.
+     *
+     * @return A mutable map ready to be written to Firestore.
+     */
     private Map<String, Object> buildEventMap() {
         Map<String, Object> event = new HashMap<>();
 

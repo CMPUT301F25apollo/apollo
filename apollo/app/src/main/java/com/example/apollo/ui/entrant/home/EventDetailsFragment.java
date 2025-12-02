@@ -62,6 +62,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Fragment that shows entrant-side event details and controls waitlist behavior.
+ * It loads event info, tracks the user's registration / invite / waitlist state,
+ * and updates the main action button based on live Firestore data.
+ */
 public class EventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
@@ -86,10 +91,19 @@ public class EventDetailsFragment extends Fragment {
     private boolean registrationEnded = false;
     private String registrationOpenText = null;
 
-
     // keep latest snapshots to avoid races
     private Boolean hasRegistered = null, hasInvited = null, hasWaiting = null, isGeolocation = null;
 
+    /**
+     * Inflates the event details layout, initializes Firestore/auth/location,
+     * loads event information, and sets up logic depending on whether the
+     * user is logged in or not.
+     *
+     * @param inflater  LayoutInflater used to inflate the fragment layout.
+     * @param container Optional parent view group.
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -135,13 +149,21 @@ public class EventDetailsFragment extends Fragment {
         } else {
             loginText.setVisibility(View.GONE);
             uid = currentUser.getUid();
-            observeUserEventState();   // live state from invites/registrations/waitlist
-            wireJoinLeaveAction();     // join/leave + sign-up logic
+            observeUserEventState();
+            wireJoinLeaveAction();
         }
 
         return view;
     }
 
+    /**
+     * Loads event details from Firestore for the given event ID and updates
+     * the UI with title, description, summary, capacities, and registration
+     * windows. Also checks waitlist capacity and sets registration flags
+     * used later when rendering the main button.
+     *
+     * @param eventId The Firestore ID of the event to load.
+     */
     private void loadEventDetails(String eventId) {
         if (eventId == null) return;
         db.collection("events").document(eventId)
@@ -212,19 +234,19 @@ public class EventDetailsFragment extends Fragment {
 
                         // Save for UI text later (used in renderButton)
                         registrationOpenText = registrationOpen;
-                        
+
                         boolean notStarted = false;
                         boolean ended = false;
                         boolean isOpen = true;
-                        
+
                         try {
                             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
                             // strip time to compare date-only
                             Date today = sdf.parse(sdf.format(new Date()));
-                        
+
                             Date openDate = registrationOpen != null ? sdf.parse(registrationOpen) : null;
                             Date closeDate = registrationClose != null ? sdf.parse(registrationClose) : null;
-                        
+
                             if (openDate != null && closeDate != null) {
                                 if (today.before(openDate)) {
                                     notStarted = true;
@@ -251,19 +273,19 @@ public class EventDetailsFragment extends Fragment {
                                     isOpen = true;
                                 }
                             } else {
-                                // no dates -> always open
+
                                 isOpen = true;
                             }
                         } catch (Exception e) {
                             Log.w("DateParse", "Failed to parse registration dates", e);
                         }
 
-                        // IMPORTANT: assign the computed values to the actual fragment-wide flags
+
                         registrationNotStartedYet = notStarted;
                         registrationEnded = ended;
                         registrationOpenNow = isOpen;
 
-                        // apply registration period rules to main button BEFORE any state logic
+
                         if (registrationNotStartedYet) {
                             buttonJoinWaitlist.setText("REGISTRATION NOT OPEN");
                             buttonJoinWaitlist.setEnabled(false);
@@ -271,9 +293,7 @@ public class EventDetailsFragment extends Fragment {
                                     ContextCompat.getColorStateList(requireContext(), android.R.color.darker_gray));
                             buttonJoinWaitlist.setTextColor(
                                     ContextCompat.getColor(requireContext(), android.R.color.white));
-                        }
-
-                        else if (registrationEnded) {
+                        } else if (registrationEnded) {
                             buttonJoinWaitlist.setText("REGISTRATION CLOSED");
                             buttonJoinWaitlist.setEnabled(false);
                             buttonJoinWaitlist.setBackgroundTintList(
@@ -289,11 +309,17 @@ public class EventDetailsFragment extends Fragment {
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading event details", e));
     }
 
-    // ========= live state =========
+
+
+    /**
+     * Attaches snapshot listeners to the registrations, invites, and waitlist
+     * subcollections so the fragment always knows the user's latest state.
+     * The combined state is later used to control the button behavior.
+     */
     private void observeUserEventState() {
         if (eventId == null || uid == null) return;
 
-        // 1) registrations/{uid} => REGISTERED wins highest priority
+
         db.collection("events").document(eventId)
                 .collection("registrations").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -301,7 +327,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(registered, /*invited*/null, /*waiting*/null);
                 });
 
-        // 2) invites/{uid} => INVITED second
+
         db.collection("events").document(eventId)
                 .collection("invites").document(uid)
                 .addSnapshotListener((doc, e) -> {
@@ -309,7 +335,7 @@ public class EventDetailsFragment extends Fragment {
                     recalcState(/*registered*/null, invited, /*waiting*/null);
                 });
 
-        // 3) waitlist/{uid} => WAITING otherwise
+
         waitlistRef().addSnapshotListener((doc, e) -> {
             boolean waiting = (doc != null && doc.exists() &&
                     "waiting".equals(doc.getString("state")));
@@ -317,7 +343,15 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-    // keep the latest view of each signal and then choose the priority
+    /**
+     * Recomputes the user's effective state (REGISTERED, INVITED, WAITING, or NONE)
+     * based on the latest registration / invite / waitlist flags. This also
+     * triggers a UI refresh of the button when the state changes.
+     *
+     * @param registered New value for "hasRegistered" (or null to keep previous).
+     * @param invited    New value for "hasInvited" (or null to keep previous).
+     * @param waiting    New value for "hasWaiting" (or null to keep previous).
+     */
     private void recalcState(Boolean registered, Boolean invited, Boolean waiting) {
         if (!isAdded() || getContext() == null || buttonJoinWaitlist == null) {
             Log.w("EventDetailsFragment", "recalcState: fragment not attached, skipping");
@@ -342,6 +376,13 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Gets the user's last known location (if permission is granted) and returns
+     * it via the provided callback. If permission is missing or an error occurs,
+     * {@code null} values are passed to the callback.
+     *
+     * @param callback Callback that receives latitude and longitude, or nulls.
+     */
     private void getUserLocation(LocationCallback callback) {
 
         if (ActivityCompat.checkSelfPermission(requireContext(),
@@ -366,6 +407,11 @@ public class EventDetailsFragment extends Fragment {
                 .addOnFailureListener(e -> callback.onComplete(null, null));
     }
 
+    /**
+     * Handles the result of the location permission request. If granted, this
+     * method continues the pending location-based waitlist join flow; otherwise
+     * it shows a toast explaining that permission was denied.
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -416,7 +462,13 @@ public class EventDetailsFragment extends Fragment {
 
     }
 
-    // ========= join/leave + SIGN UP logic =========
+    /**
+     * Wires up the main button click to handle all user actions:
+     * - If REGISTERED: shows a simple message.
+     * - If INVITED: signs the user up (moves them into registrations).
+     * - If WAITING: removes the user from the waitlist.
+     * - If NONE: adds the user to the waitlist (with optional geolocation).
+     */
     private void wireJoinLeaveAction() {
         buttonJoinWaitlist.setOnClickListener(v -> {
             if (state == State.REGISTERED) {
@@ -425,10 +477,6 @@ public class EventDetailsFragment extends Fragment {
             }
 
             if (state == State.INVITED) {
-                // SIGN UP flow:
-                // - Create registrations/{uid}
-                // - Delete waitlist/{uid}
-                // - Delete invites/{uid}
                 setLoading(true);
                 HashMap<String, Object> regData = new HashMap<>();
                 regData.put("registeredAt", FieldValue.serverTimestamp());
@@ -463,7 +511,7 @@ public class EventDetailsFragment extends Fragment {
                             setLoading(false);
                         });
             } else {
-                // state == NONE → join as waiting
+
                 setLoading(true);
                 HashMap<String, Object> data = new HashMap<>();
                 data.put("joinedAt", FieldValue.serverTimestamp());
@@ -477,11 +525,11 @@ public class EventDetailsFragment extends Fragment {
 
                         if (lat != null && lon != null) {
 
-                            // Save individual fields
+
                             data.put("latitude", lat);
                             data.put("longitude", lon);
 
-                            // Append to coordinates array in event document
+
                             DocumentReference eventRef = db.collection("events").document(eventId);
 
                             eventRef.get().addOnSuccessListener(doc -> {
@@ -503,7 +551,7 @@ public class EventDetailsFragment extends Fragment {
                                         .addOnSuccessListener(a -> {
                                             Log.d("Geo", "Coordinate appended.");
 
-                                            // NOW save the entrant to waitlist
+                                            //  save the entrant to waitlist
                                             waitlistRef().set(data, SetOptions.merge())
                                                     .addOnSuccessListener(ok -> {
                                                         toast("Joined waitlist");
@@ -521,7 +569,7 @@ public class EventDetailsFragment extends Fragment {
                             });
 
                         } else {
-                            // location null → still join waitlist WITHOUT coords
+
                             waitlistRef().set(data, SetOptions.merge())
                                     .addOnSuccessListener(ok -> {
                                         toast("Joined waitlist");
@@ -536,7 +584,7 @@ public class EventDetailsFragment extends Fragment {
                     });
 
                 } else {
-                    // No geolocation → simple save
+                    // No geolocation means simple save
                     waitlistRef().set(data, SetOptions.merge())
                             .addOnSuccessListener(ok -> {
                                 toast("Joined waitlist");
@@ -552,21 +600,30 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    /** @return DocumentReference for this user's waitlist entry under the current event. */
     private DocumentReference waitlistRef() {
         return db.collection("events").document(eventId)
                 .collection("waitlist").document(uid);
     }
 
+    /** @return DocumentReference for this user's invite entry under the current event. */
     private DocumentReference inviteRef() {
         return db.collection("events").document(eventId)
                 .collection("invites").document(uid);
     }
 
+    /** @return DocumentReference for this user's registration entry under the current event. */
     private DocumentReference registrationRef() {
         return db.collection("events").document(eventId)
                 .collection("registrations").document(uid);
     }
 
+    /**
+     * Listens for changes to the event's waitlist and updates the displayed
+     * count. If the waitlist is full, this method also disables the join button.
+     *
+     * @param eventId The ID of the event whose waitlist should be observed.
+     */
     private void listenToWaitlistCount(String eventId) {
         if (eventId == null) return;
 
@@ -600,7 +657,7 @@ public class EventDetailsFragment extends Fragment {
                         int count = (waitlistSnapshot == null) ? 0 : waitlistSnapshot.size();
                         textWaitlistCount.setText("Waitlist count: " + count);
 
-                        // If full → immediately disable button and show "WAITLIST FULL"
+                        // If full disable button and show "WAITLIST FULL"
                         if (count >= finalWaitlistCapacity && finalWaitlistCapacity > 0) {
                             buttonJoinWaitlist.setText("WAITLIST FULL");
                             buttonJoinWaitlist.setEnabled(false);
@@ -613,7 +670,12 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-    // ========= UI helpers =========
+
+
+    /**
+     * Updates the main action button text, enabled state, and styling based on
+     * the current {@link State} and registration period flags.
+     */
     private void renderButton() {
 
         if (!isAdded() || getContext() == null) {
@@ -634,7 +696,7 @@ public class EventDetailsFragment extends Fragment {
                 break;
 
             case INVITED:
-                // Now acts as SIGN UP button
+
                 buttonJoinWaitlist.setText("SIGN UP");
                 buttonJoinWaitlist.setEnabled(true);
                 buttonJoinWaitlist.setBackgroundTintList(
@@ -651,7 +713,6 @@ public class EventDetailsFragment extends Fragment {
                 buttonJoinWaitlist.setTextColor(
                         ContextCompat.getColor(ctx, android.R.color.white));
                 break;
-
 
             case NONE:
             default:
@@ -685,35 +746,48 @@ public class EventDetailsFragment extends Fragment {
                             ContextCompat.getColor(ctx, android.R.color.black)
                     );
                 }
-
-
-
         }
     }
 
+    /**
+     * Enables or disables the main button while showing a simple "Please wait…"
+     * loading text when an async operation is in progress.
+     *
+     * @param loading true if an operation is running; false to restore normal state.
+     */
     private void setLoading(boolean loading) {
         buttonJoinWaitlist.setEnabled(!loading);
         if (loading) buttonJoinWaitlist.setText("Please wait…");
-        else renderButton(); // re-render based on current state
+        else renderButton();
     }
 
+    /**
+     * Convenience wrapper for showing a short toast message if the fragment
+     * is still attached to a context.
+     *
+     * @param m Message to display in a toast.
+     */
     private void toast(String m) {
         if (getContext() != null) Toast.makeText(getContext(), m, Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Shows a modal dialog with a QR code for this event. The QR code content
+     * is based on the event ID.
+     */
     private void showQrCodeModal() {
         if (eventId == null) return;
 
-        // Inflate a custom layout for the modal
+
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_qr_code, null);
         ImageView qrImageView = dialogView.findViewById(R.id.qrCodeImageView);
         Button closeButton = dialogView.findViewById(R.id.closeButton);
 
-        // Generate QR code bitmap from eventId (or qrData)
-        Bitmap qrBitmap = generateQRCode(eventId); // You need a method that returns a Bitmap
+
+        Bitmap qrBitmap = generateQRCode(eventId);
         qrImageView.setImageBitmap(qrBitmap);
 
-        // Create dialog
+
         final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(getContext())
                 .setView(dialogView)
                 .create();
@@ -723,6 +797,12 @@ public class EventDetailsFragment extends Fragment {
         dialog.show();
     }
 
+    /**
+     * Generates a QR code bitmap from the given string using ZXing.
+     *
+     * @param data The string to encode into the QR code.
+     * @return A Bitmap representing the QR code, or null if generation fails.
+     */
     private Bitmap generateQRCode(String data) {
         try {
             com.google.zxing.MultiFormatWriter writer = new com.google.zxing.MultiFormatWriter();
@@ -744,10 +824,12 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Simple callback interface used to return optional latitude/longitude
+     * values from the asynchronous location lookup.
+     */
     private interface LocationCallback {
         void onComplete(@Nullable Double lat, @Nullable Double lon);
     }
-
-
 
 }

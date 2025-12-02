@@ -27,6 +27,15 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * HomeFragment.java
+ *
+ * This fragment shows the main entrant-facing event list.
+ * It loads events from Firestore, displays them as cards, and supports:
+ * - Info dialog explaining the lottery system
+ * - Navigation to filters and QR scanner
+ * - Filtering by open/closed status, title, location, date, and categories
+ */
 public class HomeFragment extends Fragment {
 
     private boolean showOpen = true;
@@ -41,6 +50,16 @@ public class HomeFragment extends Fragment {
     private String dateFilter = "";
     private ArrayList<String> selectedCategories = new ArrayList<>();
 
+    /**
+     * Inflates the home layout, initializes Firestore and UI elements,
+     * sets up the info dialog, filter navigation, QR scanner navigation,
+     * and listens for filter results from {@link FilterFragment}.
+     *
+     * @param inflater  LayoutInflater used to inflate the layout.
+     * @param container Parent view group (may be null).
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
@@ -68,7 +87,7 @@ public class HomeFragment extends Fragment {
                 .show()
         );
 
-    // Navigate to FilterFragment
+        // Navigate to FilterFragment
         filterButton.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putBoolean("open", showOpen);
@@ -76,17 +95,13 @@ public class HomeFragment extends Fragment {
             args.putString("titleKeyword", titleKeyword);
             args.putString("locationKeyword", locationKeyword);
             args.putString("date", dateFilter);
-
-            // 🔹 ADD THIS LINE
             args.putStringArrayList("categories", selectedCategories);
 
             NavHostFragment.findNavController(this)
                     .navigate(R.id.action_navigation_home_to_navigation_filter, args);
         });
 
-
         // Listen for filter results
-// Listen for filter results
         getParentFragmentManager().setFragmentResultListener("filters", this, (reqKey, bundle) -> {
             showOpen = bundle.getBoolean("open");
             showClosed = bundle.getBoolean("closed");
@@ -95,7 +110,7 @@ public class HomeFragment extends Fragment {
             locationKeyword = bundle.getString("locationKeyword", "").toLowerCase();
             dateFilter = bundle.getString("date", "");
 
-            // NEW: Receive category filters
+            // Receive category filters
             selectedCategories = bundle.getStringArrayList("categories");
             if (selectedCategories == null) selectedCategories = new ArrayList<>();
 
@@ -114,6 +129,11 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Loads all events from Firestore, builds a card for each event,
+     * and stores a lightweight {@link Event} model for filtering.
+     * Also determines whether each event is "open" or "closed" based on dates.
+     */
     private void loadEventsFromFirestore() {
         db.collection("events")
                 .get()
@@ -192,6 +212,10 @@ public class HomeFragment extends Fragment {
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
 
+    /**
+     * Applies all active filters (open/closed, title, location, date, categories)
+     * to the in-memory list of events and shows/hides event cards accordingly.
+     */
     private void filterEvents() {
         boolean showAll = !showOpen && !showClosed;
 
@@ -215,9 +239,7 @@ public class HomeFragment extends Fragment {
 
             if (show && filterDate != null && !e.isAvailableOn(filterDate)) show = false;
 
-            // CATEGORY FILTERING (NEW)
             if (show && !selectedCategories.isEmpty()) {
-                // If event has no categories in Firestore, skip it
                 List<String> eventCategories = e.getCategories();
                 if (eventCategories == null || eventCategories.isEmpty()) {
                     show = false;
@@ -239,6 +261,10 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    /**
+     * Lightweight model representing a single event in the home list.
+     * Stores display information and the associated card view used for filtering.
+     */
     private static class Event {
         private final String title;
         private final String location;
@@ -249,6 +275,18 @@ public class HomeFragment extends Fragment {
         private final Date registrationClose;
         private final List<String> categories;
 
+        /**
+         * Creates a new event entry used by the home screen.
+         *
+         * @param title             Event title.
+         * @param location          Event location.
+         * @param isOpen            Whether registration is currently considered open.
+         * @param isClosed          Whether registration is considered closed.
+         * @param view              The card view for this event.
+         * @param registrationOpen  Parsed registration open date (may be null).
+         * @param registrationClose Parsed registration close date (may be null).
+         * @param categories        List of category labels attached to the event.
+         */
         public Event(String title, String location, boolean isOpen, boolean isClosed, View view,
                      Date registrationOpen, Date registrationClose, List<String> categories) {
             this.title = title;
@@ -259,16 +297,30 @@ public class HomeFragment extends Fragment {
             this.registrationOpen = registrationOpen;
             this.registrationClose = registrationClose;
             this.categories = categories;
-
         }
 
+        /** @return true if the event is currently marked as open. */
         public boolean isOpen() { return isOpen; }
+
+        /** @return true if the event is currently marked as closed. */
         public boolean isClosed() { return isClosed; }
+
+        /** @return The associated card view. */
         public View getView() { return view; }
+
+        /** @return The event title (may be null). */
         public String getTitle() { return title; }
+
+        /** @return The event location (may be null). */
         public String getLocation() { return location; }
 
-
+        /**
+         * Checks if the event is available on the given date based on the
+         * registration open/close dates. If no dates are set, it returns true.
+         *
+         * @param date Date to check against registration window.
+         * @return true if the given date falls within the registration period.
+         */
         public boolean isAvailableOn(Date date) {
             if (date == null) return true;
             if (registrationOpen != null && date.before(registrationOpen)) return false;
@@ -276,6 +328,7 @@ public class HomeFragment extends Fragment {
             return true;
         }
 
+        /** @return List of category labels associated with this event. */
         public List<String> getCategories() { return categories; }
     }
 }

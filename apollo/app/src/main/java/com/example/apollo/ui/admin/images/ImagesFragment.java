@@ -1,3 +1,12 @@
+/**
+ * ImagesFragment.java
+ *
+ * This fragment displays all event poster images for admin users.
+ * It loads event images from Firestore, shows them as cards, supports live
+ * search filtering, and allows admins to remove poster images from events.
+ *
+ * Only events with valid poster URLs are shown.
+ */
 package com.example.apollo.ui.admin.images;
 
 import android.app.AlertDialog;
@@ -25,15 +34,26 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fragment that displays all event poster images for admins.
+ * Events with valid poster URLs are shown as cards with title, image preview,
+ * and a delete option. Supports live text search for quick filtering.
+ */
 public class ImagesFragment extends Fragment {
 
     private FirebaseFirestore db;
     private LinearLayout imagesContainer;
     private EditText searchInput;
 
-    // Stores every image event for filtering
+    /** Stores all poster items for search and filtering. */
     private final List<ImageItem> allImages = new ArrayList<>();
 
+    /**
+     * Inflates the layout, initializes UI components, and begins loading poster images.
+     * Also sets up live filtering as the admin types into the search box.
+     *
+     * @return the root view for this fragment
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
@@ -46,19 +66,25 @@ public class ImagesFragment extends Fragment {
 
         loadImagesFromFirestore();
 
-        // 🔎 live filtering as user types — matching EventsFragment
+        // Live filtering of posters
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 filterImages(s.toString());
             }
+
             @Override public void afterTextChanged(Editable s) {}
         });
 
         return view;
     }
 
-    // ========================= LOAD IMAGES FIRESTORE ==========================
+    /**
+     * Loads all events from Firestore and extracts only those with valid
+     * poster image URLs. Each valid image is stored in {@code allImages} and
+     * the UI is refreshed immediately to reflect new data.
+     */
     private void loadImagesFromFirestore() {
         db.collection("events")
                 .get()
@@ -71,20 +97,24 @@ public class ImagesFragment extends Fragment {
                         String title = document.getString("title");
                         String posterUrl = document.getString("eventPosterUrl");
 
-                        // Only store events that have valid images
+                        // Only add events with posters
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             allImages.add(new ImageItem(eventId, title, posterUrl));
-                            filterImages(searchInput.getText().toString()); // refresh UI live
+                            filterImages(searchInput.getText().toString()); // refresh instantly
                         }
                     }
 
                 })
                 .addOnFailureListener(e ->
-                        Log.e("Firestore", "❌ Error loading images", e));
+                        Log.e("Firestore", "Error loading images", e));
     }
 
-
-    // ========================= FILTER + DISPLAY  ==============================
+    /**
+     * Filters the list of posters based on the admin's search query and
+     * repopulates the container with matching cards.
+     *
+     * @param query text used to match event titles (case-insensitive)
+     */
     private void filterImages(String query) {
         imagesContainer.removeAllViews();
         String lowerQuery = query.toLowerCase();
@@ -113,12 +143,22 @@ public class ImagesFragment extends Fragment {
         }
     }
 
-    // ========================= DATA MODEL ==========================
+    /**
+     * Simple model representing an image entry with an event ID,
+     * event title, and poster URL.
+     */
     private static class ImageItem {
         private final String id;
         private final String title;
         private final String posterUrl;
 
+        /**
+         * Constructs a poster item used in this fragment.
+         *
+         * @param id        the Firestore event ID
+         * @param title     title of the event
+         * @param posterUrl URL of the poster image
+         */
         public ImageItem(String id, String title, String posterUrl) {
             this.id = id;
             this.title = title;
@@ -130,8 +170,13 @@ public class ImagesFragment extends Fragment {
         public String getPosterUrl() { return posterUrl; }
     }
 
-
-    // ========================= DELETE IMAGE ==========================
+    /**
+     * Shows a confirm dialog before deleting the poster image.
+     *
+     * @param eventId    the event whose poster is being removed
+     * @param card       UI card to remove after deletion
+     * @param eventTitle title of the event, used in the dialog message
+     */
     private void showDeleteDialog(String eventId, View card, String eventTitle) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Remove Poster")
@@ -141,6 +186,13 @@ public class ImagesFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Deletes the poster URL field from the event document.
+     * On success, the UI card is removed and a toast is shown.
+     *
+     * @param eventId the event whose poster should be cleared
+     * @param card    view to remove from the list
+     */
     private void deleteImage(String eventId, View card) {
         db.collection("events").document(eventId)
                 .update("eventPosterUrl", "")

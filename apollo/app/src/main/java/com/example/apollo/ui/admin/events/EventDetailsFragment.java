@@ -1,3 +1,14 @@
+/**
+ * EventDetailsFragment.java
+ *
+ * This fragment allows admin users to view all details of a selected event.
+ * It pulls event information from Firestore including title, description,
+ * date/time, registration window, capacity values, and the event poster.
+ * The fragment also loads and displays the current waitlist count.
+ *
+ * This is a read-only screen for admins to verify event data and understand
+ * how many entrants are currently registered or waiting.
+ */
 package com.example.apollo.ui.admin.events;
 
 import android.os.Bundle;
@@ -14,16 +25,29 @@ import androidx.fragment.app.Fragment;
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.DocumentSnapshot;
 
+/**
+ * Fragment that displays detailed information about a single event for admins.
+ * It retrieves event data and waitlist size from Firestore and updates the UI
+ * with all relevant fields and the event poster if available.
+ */
 public class EventDetailsFragment extends Fragment {
 
     private FirebaseFirestore db;
     private ImageView posterImage;
     private TextView titleText, descriptionText, waitlistText, summaryText;
-
     private String eventId;
 
+    /**
+     * Inflates the event details layout and initializes all UI components.
+     * If an event ID is passed through arguments, this method begins loading
+     * the event information from Firestore.
+     *
+     * @param inflater  LayoutInflater used to inflate the fragment layout.
+     * @param container Parent layout container.
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The inflated root view for this fragment.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -50,6 +74,13 @@ public class EventDetailsFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Retrieves event details and waitlist size from Firestore. Once the data
+     * is loaded, this method fills the UI with the event title, description,
+     * date/time information, registration window, capacities, and poster image.
+     *
+     * @param eventId The Firestore ID of the event document to load.
+     */
     private void loadEventDetails(String eventId) {
         db.collection("events").document(eventId)
                 .get()
@@ -68,7 +99,7 @@ public class EventDetailsFragment extends Fragment {
                         Double price = document.getDouble("price");
                         String posterUrl = document.getString("eventPosterUrl");
 
-                        // Fetch waitlist size
+                        // Waitlist fetch
                         db.collection("events").document(eventId)
                                 .collection("waitlist")
                                 .get()
@@ -95,6 +126,7 @@ public class EventDetailsFragment extends Fragment {
                                                     (waitlistCapacity != null ? waitlistCapacity : 0)
                                     );
 
+                                    // Poster image
                                     if (posterUrl != null && !posterUrl.isEmpty()) {
                                         Glide.with(getContext())
                                                 .load(posterUrl)
@@ -110,5 +142,4 @@ public class EventDetailsFragment extends Fragment {
                         Toast.makeText(getContext(), "Failed to load event", Toast.LENGTH_SHORT).show()
                 );
     }
-
-    }
+}

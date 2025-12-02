@@ -1,3 +1,10 @@
+/**
+ * EventsFragment.java
+ *
+ * This fragment shows a list of all events for admin users.
+ * It loads events from Firestore, displays them as cards, supports
+ * simple text search, and allows admins to view details or delete events.
+ */
 package com.example.apollo.ui.admin.events;
 
 import android.app.AlertDialog;
@@ -29,6 +36,11 @@ import com.google.firebase.firestore.QuerySnapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fragment that lists all events for admins.
+ * Events are fetched from Firestore and shown as cards with basic details.
+ * Admins can search by title, tap a card to see full details, or delete an event.
+ */
 public class EventsFragment extends Fragment {
 
     private FirebaseFirestore db;
@@ -36,6 +48,16 @@ public class EventsFragment extends Fragment {
     private final List<Event> allEvents = new ArrayList<>();
     private TextView searchInput;
 
+    /**
+     * Inflates the admin events layout, initializes UI components,
+     * and starts loading events from Firestore. Also attaches a text
+     * listener to filter events as the user types in the search box.
+     *
+     * @param inflater  LayoutInflater used to inflate the UI.
+     * @param container Parent view group for this fragment.
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -47,6 +69,7 @@ public class EventsFragment extends Fragment {
 
         loadEventsFromFirestore();
 
+        // Filter the list as the admin types in the search bar
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -63,6 +86,11 @@ public class EventsFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Loads all events from the "events" collection in Firestore.
+     * For each event, it also loads the waitlist size and stores
+     * the result in {@code allEvents}, then refreshes the filtered list.
+     */
     private void loadEventsFromFirestore() {
         db.collection("events")
                 .get()
@@ -104,6 +132,12 @@ public class EventsFragment extends Fragment {
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
     }
 
+    /**
+     * Filters the in-memory list of events by title and rebuilds the
+     * cards shown in the container. Matches are case-insensitive.
+     *
+     * @param query The search text typed by the admin.
+     */
     private void filterEvents(String query) {
         eventsContainer.removeAllViews();
         String lowerQuery = query.toLowerCase();
@@ -147,6 +181,10 @@ public class EventsFragment extends Fragment {
         }
     }
 
+    /**
+     * Simple model class representing an event item in the admin list.
+     * Holds basic display information and waitlist stats.
+     */
     private static class Event {
         private final String id;
         private final String title;
@@ -156,6 +194,17 @@ public class EventsFragment extends Fragment {
         private final Long waitlist;
         private int waitlistCount;
 
+        /**
+         * Creates a new Event model used by the admin list.
+         *
+         * @param id            Firestore document ID of the event.
+         * @param title         Title of the event.
+         * @param posterUrl     URL for the event poster image.
+         * @param location      Location of the event.
+         * @param capacity      Maximum number of attendees.
+         * @param waitlist      Maximum waitlist size.
+         * @param waitlistCount Current number of people on the waitlist.
+         */
         public Event(String id, String title, String posterUrl, String location,
                      Long capacity, Long waitlist, int waitlistCount) {
             this.id = id;
@@ -167,16 +216,34 @@ public class EventsFragment extends Fragment {
             this.waitlistCount = waitlistCount;
         }
 
+        /** @return The Firestore ID of this event. */
         public String getId() { return id; }
+
+        /** @return The title of this event. */
         public String getTitle() { return title; }
+
+        /** @return URL for the event poster image, or null if not set. */
         public String getPosterUrl() { return posterUrl; }
+
+        /** @return The location string for this event. */
         public String getLocation() { return location; }
+
+        /** @return The event capacity (max attendees). */
         public Long getCapacity() { return capacity; }
+
+        /** @return The maximum size of the waitlist. */
         public Long getWaitlist() { return waitlist; }
         public int getWaitlistCount() { return waitlistCount; }
         public void setWaitlistCount(int waitlistCount) { this.waitlistCount = waitlistCount; }
     }
 
+    /**
+     * Shows a confirmation dialog before deleting an event.
+     *
+     * @param eventId    ID of the event to delete.
+     * @param card       The view representing the event card in the list.
+     * @param eventTitle Title of the event, used in the dialog message.
+     */
     private void showDeleteConfirmationDialog(String eventId, View card, String eventTitle) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Delete Event")
@@ -186,6 +253,13 @@ public class EventsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Deletes an event document from Firestore and removes its card from the UI
+     * if the delete succeeds. Logs and shows a toast for both success and failure.
+     *
+     * @param eventId ID of the event to delete.
+     * @param card    The card view to remove from the container on success.
+     */
     private void deleteEvent(String eventId, View card) {
         db.collection("events").document(eventId)
                 .delete()

@@ -1,3 +1,10 @@
+/**
+ * ProfilesFragment.java
+ *
+ * This fragment allows admin users to view and manage all user profiles.
+ * It loads user documents from Firestore, displays them as cards, supports
+ * live search by name or username, and lets admins delete profiles.
+ */
 package com.example.apollo.ui.admin.profiles;
 
 import android.app.AlertDialog;
@@ -23,14 +30,29 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fragment that displays a list of user profiles for admins.
+ * Each profile card shows basic account information and includes
+ * a delete button with confirmation.
+ */
 public class ProfilesFragment extends Fragment {
 
     private FirebaseFirestore db;
     private LinearLayout profilesContainer;
     private EditText searchInput;
 
+    /** In-memory list of all profiles, used for filtering. */
     private final List<DocumentSnapshot> allProfiles = new ArrayList<>();
 
+    /**
+     * Inflates the profiles layout, initializes Firestore and UI views,
+     * loads the list of user profiles, and sets up the search bar.
+     *
+     * @param inflater  LayoutInflater used to inflate the fragment layout.
+     * @param container Optional parent view group.
+     * @param savedInstanceState Previously saved state (not used here).
+     * @return The root view for this fragment.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -49,9 +71,10 @@ public class ProfilesFragment extends Fragment {
         return view;
     }
 
-    // ---------------------------
-    // LOAD ALL PROFILES
-    // ---------------------------
+    /**
+     * Loads all user documents from the "users" collection in Firestore.
+     * The results are stored in {@code allProfiles} and rendered as cards.
+     */
     private void loadProfiles() {
         db.collection("users")
                 .get()
@@ -70,9 +93,13 @@ public class ProfilesFragment extends Fragment {
                 );
     }
 
-    // ---------------------------
-    // ADD PROFILE CARD
-    // ---------------------------
+
+    /**
+     * Creates and adds a single profile card view to the container using
+     * information from the given Firestore document.
+     *
+     * @param doc Firestore document representing one user profile.
+     */
     private void addProfileCard(DocumentSnapshot doc) {
         View card = getLayoutInflater().inflate(R.layout.item_profile_card, profilesContainer, false);
 
@@ -88,15 +115,19 @@ public class ProfilesFragment extends Fragment {
         ((TextView) card.findViewById(R.id.profile_phone)).setText("Phone: " + phone);
         ((TextView) card.findViewById(R.id.profile_username)).setText("Username: " + username);
 
-        // DELETE BUTTON WITH CONFIRMATION
+        // Delete button with confirmation dialog
         card.findViewById(R.id.delete_button).setOnClickListener(v -> showDeleteConfirmation(doc, card));
 
         profilesContainer.addView(card);
     }
 
-    // ---------------------------
-    // SHOW "ARE YOU SURE?" DIALOG
-    // ---------------------------
+
+    /**
+     * Shows a confirmation dialog before deleting the given profile.
+     *
+     * @param doc  Firestore document for the user to delete.
+     * @param card The card view to remove on successful deletion.
+     */
     private void showDeleteConfirmation(DocumentSnapshot doc, View card) {
         new AlertDialog.Builder(getContext())
                 .setTitle("Delete Profile?")
@@ -106,9 +137,14 @@ public class ProfilesFragment extends Fragment {
                 .show();
     }
 
-    // ---------------------------
-    // DELETE PROFILE FROM FIRESTORE
-    // ---------------------------
+
+    /**
+     * Deletes the given user document from Firestore and removes its card
+     * from the layout if the delete succeeds.
+     *
+     * @param doc  Firestore document to delete.
+     * @param card Card view associated with this profile.
+     */
     private void deleteProfile(DocumentSnapshot doc, View card) {
         db.collection("users")
                 .document(doc.getId())
@@ -121,9 +157,11 @@ public class ProfilesFragment extends Fragment {
                         Toast.makeText(getContext(), "Failed to delete profile", Toast.LENGTH_SHORT).show());
     }
 
-    // ---------------------------
-    // SEARCH FUNCTIONALITY
-    // ---------------------------
+
+    /**
+     * Sets up the search bar so that profiles are filtered live as
+     * the admin types by name or username.
+     */
     private void setupSearchBar() {
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override
@@ -139,9 +177,14 @@ public class ProfilesFragment extends Fragment {
         });
     }
 
-    // ---------------------------
-    // FILTER PROFILES
-    // ---------------------------
+
+
+    /**
+     * Filters the full list of profiles against the given query and
+     * redraws the visible cards. Matches are done on name or username.
+     *
+     * @param query The search query entered by the admin.
+     */
     private void filterProfiles(String query) {
 
         profilesContainer.removeAllViews();
