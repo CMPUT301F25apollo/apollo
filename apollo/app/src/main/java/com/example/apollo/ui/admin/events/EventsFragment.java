@@ -20,8 +20,11 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.bumptech.glide.Glide;
 import com.example.apollo.R;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,45 +60,48 @@ public class EventsFragment extends Fragment {
             public void afterTextChanged(Editable s) {}
         });
 
-
-
         return view;
     }
 
     private void loadEventsFromFirestore() {
         db.collection("events")
                 .get()
-                .addOnSuccessListener(querySnapshot -> {
+                .addOnSuccessListener(queryDocumentSnapshots -> {
                     allEvents.clear();
+                    List<Task<QuerySnapshot>> waitlistTasks = new ArrayList<>();
+                    List<Event> unprocessedEvents = new ArrayList<>();
 
-                    for (QueryDocumentSnapshot document : querySnapshot) {
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         String eventId = document.getId();
                         String title = document.getString("title");
                         String posterUrl = document.getString("eventPosterUrl");
                         String location = document.getString("location");
                         Long capacity = document.getLong("eventCapacity");
-                        long waitlist =  document.getLong("waitlistCapacity");
+                        Long waitlistCapacity = document.getLong("waitlistCapacity");
 
-                        // Now get waitlist count
-                        db.collection("events")
+                        Event event = new Event(eventId, title, posterUrl, location, capacity, waitlistCapacity, 0);
+                        unprocessedEvents.add(event);
+
+                        Task<QuerySnapshot> waitlistTask = db.collection("events")
                                 .document(eventId)
                                 .collection("waitlist")
-                                .get()
-                                .addOnSuccessListener(waitlistSnapshot -> {
-
-                                    int waitlistCount = waitlistSnapshot.size();
-
-                                    allEvents.add(new Event(
-                                            eventId, title, posterUrl, location, capacity, waitlist, waitlistCount
-                                    ));
-
-                                    filterEvents(searchInput.getText().toString());
-                                });
+                                .get();
+                        waitlistTasks.add(waitlistTask);
                     }
+
+                    Tasks.whenAllSuccess(waitlistTasks).addOnSuccessListener(waitlistSnapshots -> {
+                        for (int i = 0; i < waitlistSnapshots.size(); i++) {
+                            int waitlistCount = ((QuerySnapshot) waitlistSnapshots.get(i)).size();
+                            unprocessedEvents.get(i).setWaitlistCount(waitlistCount);
+                        }
+                        allEvents.addAll(unprocessedEvents);
+                        if (isAdded() && getContext() != null) {
+                            filterEvents(searchInput.getText().toString());
+                        }
+                    });
 
                 })
                 .addOnFailureListener(e -> Log.e("Firestore", "Error loading events", e));
-
     }
 
     private void filterEvents(String query) {
@@ -104,7 +110,6 @@ public class EventsFragment extends Fragment {
 
         for (Event event : allEvents) {
             if (event.getTitle() != null && event.getTitle().toLowerCase().contains(lowerQuery)) {
-                // Inflate a fresh card each time
                 View card = LayoutInflater.from(getContext())
                         .inflate(R.layout.item_event_card_admin, eventsContainer, false);
 
@@ -115,10 +120,9 @@ public class EventsFragment extends Fragment {
                 TextView capacityView = card.findViewById(R.id.eventCapacity);
                 TextView waitlistView = card.findViewById(R.id.eventWaitlist);
 
-                locationView.setText("Location: " + event.getLocation());
-                capacityView.setText("Event Capacity: " + event.getCapacity());
-                waitlistView.setText("Waitlist Capacity: " + event.waitlistCount + "/" + event.capacity);
-
+                locationView.setText("Location: " + (event.getLocation() != null ? event.getLocation() : "N/A"));
+                capacityView.setText("Event Capacity: " + (event.getCapacity() != null ? event.getCapacity() : "0"));
+                waitlistView.setText("Waitlist: " + event.getWaitlistCount() + "/" + (event.getWaitlist() != null ? event.getWaitlist() : "0"));
 
                 titleView.setText(event.getTitle());
 
@@ -128,20 +132,13 @@ public class EventsFragment extends Fragment {
                             .into(posterView);
                 }
 
-                // Click to navigate to details
                 card.setOnClickListener(v -> {
                     Bundle bundle = new Bundle();
                     bundle.putString("eventId", event.getId());
-
-                    // Use the fragment reference correctly
                     NavController navController = NavHostFragment.findNavController(EventsFragment.this);
-
-                    // Make sure this action exists in nav_graph.xml
                     navController.navigate(R.id.action_navigation_events_to_navigation_event_details, bundle);
                 });
 
-
-                // Click to delete
                 deleteButton.setOnClickListener(v ->
                         showDeleteConfirmationDialog(event.getId(), card, event.getTitle()));
 
@@ -157,7 +154,7 @@ public class EventsFragment extends Fragment {
         private final String location;
         private final Long capacity;
         private final Long waitlist;
-        int waitlistCount;
+        private int waitlistCount;
 
         public Event(String id, String title, String posterUrl, String location,
                      Long capacity, Long waitlist, int waitlistCount) {
@@ -168,7 +165,6 @@ public class EventsFragment extends Fragment {
             this.capacity = capacity;
             this.waitlist = waitlist;
             this.waitlistCount = waitlistCount;
-
         }
 
         public String getId() { return id; }
@@ -177,8 +173,9 @@ public class EventsFragment extends Fragment {
         public String getLocation() { return location; }
         public Long getCapacity() { return capacity; }
         public Long getWaitlist() { return waitlist; }
+        public int getWaitlistCount() { return waitlistCount; }
+        public void setWaitlistCount(int waitlistCount) { this.waitlistCount = waitlistCount; }
     }
-
 
     private void showDeleteConfirmationDialog(String eventId, View card, String eventTitle) {
         new AlertDialog.Builder(requireContext())
